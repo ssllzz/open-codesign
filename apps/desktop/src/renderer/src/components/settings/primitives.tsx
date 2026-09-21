@@ -7,7 +7,6 @@ import {
   Cpu,
   FolderOpen,
   Globe,
-  Loader2,
   MoreHorizontal,
   Pencil,
   Sliders,
@@ -360,7 +359,7 @@ export function ProviderCard({
               {t('settings.providers.missingKey')}
             </span>
           ) : null}
-          {row.builtin !== true && row.tlsRejectUnauthorized === true && (
+          {row.tlsRejectUnauthorized === true && (
             <span
               title={t('settings.providers.tlsRejectUnauthorized.badgeTooltip')}
               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-[var(--color-warning)] text-[var(--color-warning)] bg-[color-mix(in_oklab,var(--color-warning)_12%,transparent)] text-[var(--font-size-badge)] font-medium leading-none"
@@ -420,7 +419,6 @@ export function ProviderCard({
 export function RowModelSelector({
   config,
   row,
-  onRowChanged,
 }: {
   config: OnboardingState;
   row: ProviderRow;
@@ -432,52 +430,26 @@ export function RowModelSelector({
 
   const provider = row.provider;
   const isActive = row.isActive;
+  const models = row.models;
 
-  const initial = isActive
-    ? (config.modelPrimary ?? row.defaultModel ?? '')
-    : (row.defaultModel ?? '');
+  const initial = isActive ? (config.modelPrimary ?? models[0] ?? '') : (models[0] ?? '');
   const [primary, setPrimary] = useState(initial);
-  const [models, setModels] = useState<string[] | null>(null);
-  const [loadingModels, setLoadingModels] = useState(false);
 
   useEffect(() => {
-    setPrimary(
-      isActive ? (config.modelPrimary ?? row.defaultModel ?? '') : (row.defaultModel ?? ''),
-    );
-  }, [isActive, config.modelPrimary, row.defaultModel]);
-
-  useEffect(() => {
-    if (!window.codesign?.models?.listForProvider) return;
-    let cancelled = false;
-    setLoadingModels(true);
-    void window.codesign.models.listForProvider(provider).then((res) => {
-      if (cancelled) return;
-      setLoadingModels(false);
-      setModels(res.ok ? res.models : []);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [provider]);
+    setPrimary(isActive ? (config.modelPrimary ?? models[0] ?? '') : (models[0] ?? ''));
+  }, [isActive, config.modelPrimary, models]);
 
   const saveSeq = useRef(0);
 
   async function save(next: string): Promise<boolean> {
     if (!window.codesign) return false;
     try {
-      if (isActive) {
-        const updated = await window.codesign.settings.setActiveProvider({
-          provider,
-          modelPrimary: next,
-        });
-        recordAction({ type: 'provider.switch', data: { provider, modelId: next } });
-        setConfig(updated);
-      } else {
-        // Inactive row: persist the per-provider default so "Set as current"
-        // later picks it up via currentRow.defaultModel.
-        await window.codesign.config.updateProvider({ id: provider, defaultModel: next });
-        onRowChanged({ ...row, defaultModel: next });
-      }
+      const updated = await window.codesign.settings.setActiveProvider({
+        provider,
+        modelPrimary: next,
+      });
+      recordAction({ type: 'provider.switch', data: { provider, modelId: next } });
+      setConfig(updated);
       return true;
     } catch (err) {
       reportableErrorToast({
@@ -515,14 +487,10 @@ export function RowModelSelector({
   return (
     <div className="mt-[var(--space-2)] flex items-center gap-[var(--space-2)] text-[var(--text-xs)] text-[var(--color-text-muted)]">
       <Cpu className="w-3 h-3 shrink-0" />
-      {loadingModels ? (
-        <span className="inline-flex items-center gap-1 h-6 px-2 text-[var(--text-xs)]">
-          <Loader2 className="w-3 h-3 animate-spin" />
-        </span>
-      ) : options !== null ? (
+      {isActive && options !== null ? (
         <NativeSelect value={primary} onChange={handleChange} options={options} />
       ) : (
-        <span className="h-6 px-2 inline-flex items-center font-mono text-[var(--text-xs)] text-[var(--color-text-primary)]">
+        <span className="h-6 px-2 inline-flex items-center font-mono text-[var(--text-xs)] text-[var(--color-text-primary)] truncate">
           {primary || t('settings.providers.noModel')}
         </span>
       )}
@@ -604,126 +572,6 @@ export function ReasoningDepthSelector({
         disabled={saving}
       />
     </div>
-  );
-}
-
-export function ImportBanner({
-  label,
-  onImport,
-  onDismiss,
-  actionLabel,
-  tone = 'accent',
-}: {
-  label: string;
-  /** Omit to render a warning-only banner with no import button. */
-  onImport?: () => void;
-  onDismiss: () => void;
-  actionLabel?: string;
-  tone?: 'accent' | 'info';
-}) {
-  const t = useT();
-  const toneClasses =
-    tone === 'info'
-      ? 'border-[var(--color-border-strong)] bg-[var(--color-surface-muted)]'
-      : 'border-[var(--color-accent)] bg-[var(--color-accent-tint)]';
-  return (
-    <div
-      className={`rounded-[var(--radius-md)] border ${toneClasses} px-3 py-2 flex items-center gap-2`}
-    >
-      <span className="flex-1 text-[var(--text-xs)] text-[var(--color-text-primary)]">{label}</span>
-      {onImport !== undefined && (
-        <button
-          type="button"
-          onClick={onImport}
-          className="h-7 px-2.5 rounded-[var(--radius-sm)] text-[var(--text-xs)] text-[var(--color-on-accent)] bg-[var(--color-accent)] hover:opacity-90 transition-opacity whitespace-nowrap"
-        >
-          {actionLabel ?? t('settings.providers.import.action')}
-        </button>
-      )}
-      <button
-        type="button"
-        onClick={onDismiss}
-        className="h-7 px-2 rounded-[var(--radius-sm)] text-[var(--text-xs)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] transition-colors whitespace-nowrap"
-      >
-        {t('settings.providers.import.dismiss')}
-      </button>
-    </div>
-  );
-}
-
-export function ParseErrorBanner({
-  reason,
-  path,
-  onCopyPath,
-  onDismiss,
-}: {
-  reason: string;
-  path: string;
-  onCopyPath: () => void;
-  onDismiss: () => void;
-}) {
-  const t = useT();
-  return (
-    <div className="rounded-[var(--radius-md)] border border-[var(--color-error)] bg-[var(--color-surface-muted)] p-3 space-y-2">
-      <div className="flex items-start gap-2">
-        <AlertTriangle
-          className="w-4 h-4 mt-0.5 shrink-0 text-[var(--color-error)]"
-          aria-hidden="true"
-        />
-        <div className="text-[var(--text-sm)] font-medium text-[var(--color-text-primary)]">
-          {t('settings.providers.import.claudeCodeParseErrorTitle')}
-        </div>
-      </div>
-      <p className="text-[var(--text-xs)] text-[var(--color-text-secondary)] leading-relaxed break-words">
-        {t('settings.providers.import.claudeCodeParseErrorBody', { reason })}
-      </p>
-      <p className="text-[var(--text-xs)] text-[var(--color-text-muted)] font-mono break-all">
-        {path}
-      </p>
-      <div className="flex justify-between items-center gap-2 pt-1">
-        <button
-          type="button"
-          onClick={onCopyPath}
-          className="h-7 px-2.5 rounded-[var(--radius-sm)] text-[var(--text-xs)] text-[var(--color-text-secondary)] border border-[var(--color-border-strong)] hover:bg-[var(--color-surface-hover)] transition-colors whitespace-nowrap"
-        >
-          {t('settings.providers.import.claudeCodeParseErrorCopyPath')}
-        </button>
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="h-7 px-2 rounded-[var(--radius-sm)] text-[var(--text-xs)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)] transition-colors whitespace-nowrap"
-        >
-          {t('settings.providers.import.dismiss')}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-export function WarningsList({ warnings }: { warnings: string[] }) {
-  const t = useT();
-  if (warnings.length === 0) return null;
-  const MAX = 3;
-  const shown = warnings.slice(0, MAX);
-  const overflow = warnings.length - shown.length;
-  return (
-    <ul className="space-y-1 pl-1 pt-1">
-      {shown.map((w, i) => (
-        // Index-qualified key so two byte-identical warnings don't collide.
-        // eslint-disable-next-line react/no-array-index-key
-        <li
-          key={`${i}-${w.slice(0, 32)}`}
-          className="text-[var(--text-xs)] text-[var(--color-text-muted)] leading-relaxed break-words line-clamp-2"
-        >
-          ⚠️ {w}
-        </li>
-      ))}
-      {overflow > 0 ? (
-        <li className="text-[var(--text-xs)] text-[var(--color-text-muted)] italic">
-          {t('settings.providers.import.claudeCodeWarningsMore', { count: overflow })}
-        </li>
-      ) : null}
-    </ul>
   );
 }
 

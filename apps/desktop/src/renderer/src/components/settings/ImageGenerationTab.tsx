@@ -1,21 +1,10 @@
 import { useT } from '@open-codesign/i18n';
+import { defaultImageBaseUrl, defaultImageModel } from '@open-codesign/providers';
 import { Image as ImageIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { ImageGenerationSettingsView } from '../../../../preload/index';
 import { useCodesignStore } from '../../store';
 import { Label, NativeSelect, Row, SectionTitle, SegmentedControl } from './primitives';
-
-function defaultImageModelFor(provider: ImageGenerationSettingsView['provider']): string {
-  if (provider === 'openrouter') return 'openai/gpt-5.4-image-2';
-  if (provider === 'chatgpt-codex') return 'gpt-5.5';
-  return 'gpt-image-2';
-}
-
-function defaultImageBaseUrlFor(provider: ImageGenerationSettingsView['provider']): string {
-  if (provider === 'openrouter') return 'https://openrouter.ai/api/v1';
-  if (provider === 'chatgpt-codex') return 'https://chatgpt.com/backend-api';
-  return 'https://api.openai.com/v1';
-}
 
 function ImageGenerationPanel() {
   const t = useT();
@@ -96,12 +85,7 @@ function ImageGenerationPanel() {
     disabled:
       'bg-[var(--color-surface-hover)] text-[var(--color-text-muted)] border-[var(--color-border-muted)]',
   };
-  const statusLabel =
-    status === 'needsKey' && settings.provider === 'chatgpt-codex'
-      ? t('settings.imageGen.status.needsChatgptLogin', {
-          defaultValue: 'Needs ChatGPT sign-in',
-        })
-      : t(`settings.imageGen.status.${status}`);
+  const statusLabel = t(`settings.imageGen.status.${status}`);
 
   return (
     <div className="rounded-[var(--radius-md)] border border-[var(--color-border-muted)] bg-[var(--color-surface)] p-[var(--space-4)] space-y-[var(--space-4)]">
@@ -141,21 +125,14 @@ function ImageGenerationPanel() {
             disabled={saving}
             options={[
               { value: 'openai', label: 'OpenAI' },
-              {
-                value: 'chatgpt-codex',
-                label: t('settings.imageGen.chatgptSubscription', {
-                  defaultValue: 'ChatGPT subscription',
-                }),
-              },
               { value: 'openrouter', label: 'OpenRouter' },
             ]}
             onChange={(value) => {
               const provider = value as ImageGenerationSettingsView['provider'];
               void save({
                 provider,
-                credentialMode: provider === 'chatgpt-codex' ? 'inherit' : settings.credentialMode,
-                model: defaultImageModelFor(provider),
-                baseUrl: defaultImageBaseUrlFor(provider),
+                model: defaultImageModel(provider),
+                baseUrl: defaultImageBaseUrl(provider),
               });
             }}
           />
@@ -163,7 +140,7 @@ function ImageGenerationPanel() {
         <Row label={t('settings.imageGen.credentials')}>
           <SegmentedControl
             value={settings.credentialMode}
-            disabled={saving || settings.provider === 'chatgpt-codex'}
+            disabled={saving}
             options={[
               { value: 'inherit', label: t('settings.imageGen.inherit') },
               { value: 'custom', label: t('settings.imageGen.customKey') },

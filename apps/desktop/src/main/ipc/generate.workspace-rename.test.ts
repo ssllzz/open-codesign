@@ -114,7 +114,7 @@ vi.mock('@open-codesign/core', async (importOriginal) => {
 });
 
 vi.mock('@open-codesign/providers', () => ({
-  detectProviderFromKey: vi.fn(() => 'mock'),
+  complete: vi.fn(),
   generateImage: vi.fn(),
 }));
 

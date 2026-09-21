@@ -70,12 +70,13 @@ export async function runResetOnboarding(): Promise<void> {
   // Clear active provider too: keyless providers have no secret to remove, so
   // clearing only `secrets` would leave onboarding marked complete.
   const next: Config = hydrateConfig({
-    version: 3,
+    version: 4,
     activeProvider: '',
     activeModel: '',
     secrets: {},
     providers: cfg.providers,
     ...(cfg.designSystem !== undefined ? { designSystem: cfg.designSystem } : {}),
+    ...(cfg.imageGeneration !== undefined ? { imageGeneration: cfg.imageGeneration } : {}),
   });
   await writeConfig(next);
   setCachedConfig(next);

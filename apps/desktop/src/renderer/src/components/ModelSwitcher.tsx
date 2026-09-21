@@ -84,7 +84,7 @@ export function ModelSwitcher({ variant }: ModelSwitcherProps) {
 
   const [open, setOpen] = useState(false);
   const [models, setModels] = useState<string[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [providerRows, setProviderRows] = useState<ProviderRow[] | null>(null);
   const [query, setQuery] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
@@ -116,24 +116,26 @@ export function ModelSwitcher({ variant }: ModelSwitcherProps) {
     if (!open) setQuery('');
   }, [open]);
 
-  // Load provider rows once — used to display the active provider's friendly label
+  // Load provider rows whenever the dropdown opens (so edits made in Settings
+  // are reflected without a remount) plus once on mount for the friendly
+  // provider label.
+  // biome-ignore lint/correctness/useExhaustiveDependencies(open): intentional refresh trigger
   useEffect(() => {
-    if (providerRows !== null || !window.codesign?.settings?.listProviders) return;
+    if (!window.codesign?.settings?.listProviders) return;
     void window.codesign.settings
       .listProviders()
       .then((rows) => setProviderRows(rows))
       .catch(() => setProviderRows([]));
-  }, [providerRows]);
+  }, [open]);
 
+  // Models come from the provider entry's manually-configured list once the
+  // rows are loaded — no /models auto-discovery.
   useEffect(() => {
-    if (!open || models !== null || !window.codesign?.models?.listForProvider || !provider) return;
-    setLoading(true);
-    void window.codesign.models
-      .listForProvider(provider)
-      .then((res) => setModels(res.ok ? res.models : []))
-      .catch(() => setModels([]))
-      .finally(() => setLoading(false));
-  }, [open, models, provider]);
+    if (providerRows === null) return;
+    const row = providerRows.find((r) => r.provider === provider);
+    setModels(row?.models ?? []);
+    setLoading(false);
+  }, [providerRows, provider]);
 
   const showSearch = (models?.length ?? 0) > SEARCH_VISIBILITY_THRESHOLD;
 

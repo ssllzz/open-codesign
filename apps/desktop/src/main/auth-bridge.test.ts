@@ -15,7 +15,7 @@ function makeConfig(input: {
   secrets?: Record<string, SecretRef>;
 }): Config {
   return {
-    version: 3,
+    version: 4,
     activeProvider: input.activeProvider ?? '',
     activeModel: '',
     secrets: input.secrets ?? {},
@@ -37,10 +37,10 @@ describe('auth-bridge', () => {
           anthropic: {
             id: 'anthropic',
             name: 'Anthropic',
-            builtin: true,
+
             wire: 'anthropic',
             baseUrl: 'https://api.anthropic.com',
-            defaultModel: 'claude-sonnet-4-6',
+            models: ['claude-sonnet-4-6'],
           },
         },
         secrets: { anthropic: { ciphertext: PLAIN('sk-ant-test') } },
@@ -60,10 +60,10 @@ describe('auth-bridge', () => {
           openai: {
             id: 'openai',
             name: 'OpenAI',
-            builtin: true,
+
             wire: 'openai-chat',
             baseUrl: 'https://api.openai.com/v1',
-            defaultModel: 'gpt-4o',
+            models: ['gpt-4o'],
           },
         },
       }),
@@ -82,18 +82,18 @@ describe('auth-bridge', () => {
           anthropic: {
             id: 'anthropic',
             name: 'Anthropic',
-            builtin: true,
+
             wire: 'anthropic',
             baseUrl: 'https://api.anthropic.com',
-            defaultModel: 'claude-sonnet-4-6',
+            models: ['claude-sonnet-4-6'],
           },
           whq: {
             id: 'whq',
             name: 'Whq Gateway',
-            builtin: false,
+
             wire: 'anthropic',
             baseUrl: 'https://gateway.example.com',
-            defaultModel: 'claude-opus-4-7',
+            models: ['claude-opus-4-7'],
             httpHeaders: { 'x-whq-tenant': 'codesign' },
           },
         },
@@ -115,10 +115,10 @@ describe('auth-bridge', () => {
             openai: {
               id: 'openai',
               name: 'OpenAI',
-              builtin: true,
+
               wire: 'openai-chat',
               baseUrl: 'https://api.openai.com/v1',
-              defaultModel: 'gpt-4o',
+              models: ['gpt-4o'],
             },
           },
           secrets: { openai: { ciphertext: 'bad' } },
@@ -139,10 +139,10 @@ describe('auth-bridge', () => {
             openai: {
               id: 'openai',
               name: 'OpenAI',
-              builtin: true,
+
               wire: 'openai-chat',
               baseUrl: 'https://api.openai.com/v1',
-              defaultModel: 'gpt-4o',
+              models: ['gpt-4o'],
             },
           },
         }),

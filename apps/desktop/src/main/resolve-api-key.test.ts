@@ -5,66 +5,20 @@ import { resolveActiveApiKey, resolveCredentialForProvider } from './resolve-api
 
 function makeDeps(overrides: Partial<ResolveActiveApiKeyDeps> = {}): ResolveActiveApiKeyDeps {
   return {
-    getCodexAccessToken: vi.fn().mockResolvedValue('oauth-token'),
     getApiKeyForProvider: vi.fn().mockReturnValue('stored-key'),
     ...overrides,
   };
 }
 
 describe('resolveActiveApiKey', () => {
-  it('codex: returns the OAuth access token from the token store', async () => {
-    const deps = makeDeps();
-    const token = await resolveActiveApiKey('chatgpt-codex', deps);
-    expect(token).toBe('oauth-token');
-    expect(deps.getCodexAccessToken).toHaveBeenCalledTimes(1);
-    expect(deps.getApiKeyForProvider).not.toHaveBeenCalled();
-  });
-
-  it('codex: wraps token-store failure in CodesignError(PROVIDER_AUTH_MISSING)', async () => {
-    const deps = makeDeps({
-      getCodexAccessToken: vi.fn().mockRejectedValue(new Error('ChatGPT 订阅未登录')),
-    });
-    await expect(resolveActiveApiKey('chatgpt-codex', deps)).rejects.toMatchObject({
-      name: 'CodesignError',
-      code: 'PROVIDER_AUTH_MISSING',
-      message: expect.stringContaining('订阅未登录'),
-    });
-  });
-
-  it('codex: preserves the original error as cause for diagnostics', async () => {
-    const underlying = new Error('refresh gave 400');
-    const deps = makeDeps({
-      getCodexAccessToken: vi.fn().mockRejectedValue(underlying),
-    });
-    try {
-      await resolveActiveApiKey('chatgpt-codex', deps);
-      expect.fail('should have thrown');
-    } catch (err) {
-      expect(err).toBeInstanceOf(CodesignError);
-      expect((err as CodesignError).cause).toBe(underlying);
-    }
-  });
-
-  it('codex: handles non-Error rejections with a generic recovery message', async () => {
-    const deps = makeDeps({
-      getCodexAccessToken: vi.fn().mockRejectedValue('broken string value'),
-    });
-    await expect(resolveActiveApiKey('chatgpt-codex', deps)).rejects.toMatchObject({
-      name: 'CodesignError',
-      code: 'PROVIDER_AUTH_MISSING',
-      message: 'ChatGPT subscription not signed in',
-    });
-  });
-
-  it('non-codex: returns the stored API key', async () => {
+  it('returns the stored API key', async () => {
     const deps = makeDeps();
     const key = await resolveActiveApiKey('anthropic', deps);
     expect(key).toBe('stored-key');
     expect(deps.getApiKeyForProvider).toHaveBeenCalledWith('anthropic');
-    expect(deps.getCodexAccessToken).not.toHaveBeenCalled();
   });
 
-  it('non-codex: wraps key-missing error in CodesignError(PROVIDER_AUTH_MISSING) with cause', async () => {
+  it('wraps key-missing error in CodesignError(PROVIDER_AUTH_MISSING) with cause', async () => {
     const underlying = new Error('no key stored');
     const deps = makeDeps({
       getApiKeyForProvider: vi.fn().mockImplementation(() => {
@@ -85,7 +39,7 @@ describe('resolveActiveApiKey', () => {
     }
   });
 
-  it('non-codex: passes through pre-existing CodesignError without re-wrapping', async () => {
+  it('passes through pre-existing CodesignError without re-wrapping', async () => {
     const original = new CodesignError('custom code', 'PROVIDER_KEY_MISSING');
     const deps = makeDeps({
       getApiKeyForProvider: vi.fn().mockImplementation(() => {
@@ -98,7 +52,7 @@ describe('resolveActiveApiKey', () => {
     await expect(resolveActiveApiKey('anthropic', deps)).rejects.toBe(original);
   });
 
-  it('non-codex: wraps non-Error rejections with a generic diagnostic message', async () => {
+  it('wraps non-Error rejections with a generic diagnostic message', async () => {
     const deps = makeDeps({
       getApiKeyForProvider: vi.fn().mockImplementation(() => {
         throw 'broken string throw';
@@ -120,7 +74,6 @@ describe('resolveCredentialForProvider', () => {
     overrides: Partial<ResolveCredentialForProviderDeps> = {},
   ): ResolveCredentialForProviderDeps {
     return {
-      getCodexAccessToken: vi.fn().mockResolvedValue('oauth-token'),
       getApiKeyForProvider: vi.fn().mockReturnValue('stored-key'),
       hasApiKeyForProvider: vi.fn().mockReturnValue(true),
       ...overrides,
@@ -131,7 +84,7 @@ describe('resolveCredentialForProvider', () => {
     const deps = keylessDeps({
       hasApiKeyForProvider: vi.fn().mockReturnValue(false),
     });
-    await expect(resolveCredentialForProvider('ollama', true, deps)).resolves.toBe('');
+    await expect(resolveCredentialForProvider('local-gateway', true, deps)).resolves.toBe('');
     expect(deps.getApiKeyForProvider).not.toHaveBeenCalled();
   });
 
@@ -156,7 +109,7 @@ describe('resolveCredentialForProvider', () => {
         throw original;
       }),
     });
-    await expect(resolveCredentialForProvider('ollama', true, deps)).rejects.toBe(original);
+    await expect(resolveCredentialForProvider('local-gateway', true, deps)).rejects.toBe(original);
   });
 
   it('non-keyless: re-throws PROVIDER_KEY_MISSING so the user sees "add your key"', async () => {
@@ -167,17 +120,6 @@ describe('resolveCredentialForProvider', () => {
     });
     await expect(resolveCredentialForProvider('anthropic', false, deps)).rejects.toMatchObject({
       code: 'PROVIDER_KEY_MISSING',
-    });
-  });
-
-  it('codex: NEVER swallowed even with allowKeyless=true (the sign-in prompt must surface)', async () => {
-    const deps = keylessDeps({
-      getCodexAccessToken: vi.fn().mockRejectedValue(new Error('not signed in')),
-    });
-    // Somebody marking the codex ProviderEntry as keyless by config-toml
-    // hand-edit must not suppress the auth-required affordance.
-    await expect(resolveCredentialForProvider('chatgpt-codex', true, deps)).rejects.toMatchObject({
-      code: 'PROVIDER_AUTH_MISSING',
     });
   });
 

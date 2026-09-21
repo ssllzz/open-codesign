@@ -1,11 +1,8 @@
 import {
-  BUILTIN_PROVIDERS,
   CodesignError,
   type Config,
   ERROR_CODES,
-  isSupportedOnboardingProvider,
   type ModelRef,
-  PROVIDER_SHORTLIST,
   type ProviderEntry,
   type ReasoningLevel,
   resolveProviderCapabilities,
@@ -18,20 +15,19 @@ export interface ProviderRow {
   maskedKey: string;
   baseUrl: string | null;
   isActive: boolean;
-  /** Human-readable display label. For codex-imported rows this is the
-   *  UI alias "Codex (imported)", not the stored entry name. */
+  /** Human-readable display label (= the stored entry name). */
   label: string;
   /** Actual stored provider name — the value that round-trips through
-   *  updateProvider. Differs from `label` for codex rows. */
+   *  updateProvider. Same as `label` for all v4 providers. */
   name: string;
-  builtin: boolean;
   wire: WireApi;
-  defaultModel: string;
+  /** Manually configured model IDs — the model switcher's source of truth. */
+  models: string[];
   hasKey: boolean;
-  requiresApiKey?: boolean;
+  /** True when the entry declares keyless support and no secret is stored. */
+  keyless: boolean;
   reasoningLevel?: ReasoningLevel;
-  /** Per-provider TLS verification opt-out (#229). Only surfaced for
-   *  custom / imported providers; the runtime force-ignores it on built-ins. */
+  /** Per-provider TLS verification opt-out (#229). */
   tlsRejectUnauthorized?: boolean;
   error?: 'decryption_failed' | string;
 }
@@ -41,39 +37,6 @@ export interface ProviderRow {
  * still import the old name.
  */
 export const maskKey = maskSecret;
-
-export function getAddProviderDefaults(
-  cfg: Config | null,
-  input: {
-    provider: string;
-    modelPrimary: string;
-  },
-): {
-  activeProvider: string;
-  modelPrimary: string;
-} {
-  if (
-    cfg === null ||
-    cfg.activeProvider.length === 0 ||
-    !providerHasUsableCredential(cfg, cfg.activeProvider)
-  ) {
-    return {
-      activeProvider: input.provider,
-      modelPrimary: input.modelPrimary,
-    };
-  }
-  return {
-    activeProvider: cfg.activeProvider,
-    modelPrimary: cfg.activeModel,
-  };
-}
-
-function providerHasUsableCredential(cfg: Config, provider: string): boolean {
-  return (
-    cfg.secrets[provider] !== undefined ||
-    isKeylessProviderAllowed(provider, resolveEntryFor(cfg, provider))
-  );
-}
 
 export function assertProviderHasStoredSecret(cfg: Config, provider: string): void {
   if (cfg.secrets[provider] !== undefined) return;
@@ -90,10 +53,7 @@ export function isKeylessProviderAllowed(provider: string, entry?: ProviderEntry
 }
 
 function resolveEntryFor(cfg: Config, id: string): ProviderEntry | null {
-  const stored = cfg.providers[id];
-  if (stored !== undefined) return stored;
-  if (isSupportedOnboardingProvider(id)) return { ...BUILTIN_PROVIDERS[id] };
-  return null;
+  return cfg.providers[id] ?? null;
 }
 
 export function toProviderRows(
@@ -104,8 +64,7 @@ export function toProviderRows(
 
   const rows: ProviderRow[] = [];
   // Iterate the union of provider entries and stored secrets so that
-  // providers added without an API key (e.g. a Codex import where the
-  // env_key var wasn't exported) still surface as a row the user can
+  // providers added without an API key still surface as a row the user can
   // complete via "Edit". Otherwise they'd silently disappear.
   const allIds = new Set<string>([
     ...Object.keys(cfg.providers ?? {}),
@@ -120,9 +79,6 @@ export function toProviderRows(
     if (ref !== undefined) {
       // Prefer the persisted mask — avoids triggering a keychain password
       // prompt on unsigned macOS builds just to render the Settings row.
-      // Decrypt once for legacy configs that pre-date the
-      // mask field; `migrateSecrets` should have rewritten them, but
-      // we stay resilient in case migration didn't complete.
       if (ref.mask !== undefined && ref.mask.length > 0) {
         maskedKey = ref.mask;
       } else {
@@ -136,10 +92,7 @@ export function toProviderRows(
       }
     }
 
-    const label = provider.startsWith('codex-')
-      ? 'Codex (imported)'
-      : (entry?.name ??
-        (isSupportedOnboardingProvider(provider) ? PROVIDER_SHORTLIST[provider].label : provider));
+    const label = entry?.name ?? provider;
 
     rows.push({
       provider,
@@ -147,21 +100,13 @@ export function toProviderRows(
       baseUrl: entry?.baseUrl ?? null,
       isActive: cfg.activeProvider === provider,
       label,
-      // The real stored name (or the builtin default) — used by the edit
-      // modal so a codex-imported row doesn't overwrite `entry.name` with
-      // the display alias "Codex (imported)" on save.
       name: entry?.name ?? label,
-      builtin: entry?.builtin ?? isSupportedOnboardingProvider(provider),
       wire: entry?.wire ?? 'openai-chat',
-      defaultModel:
-        entry?.defaultModel ??
-        (isSupportedOnboardingProvider(provider)
-          ? PROVIDER_SHORTLIST[provider].defaultPrimary
-          : ''),
+      models: entry?.models ?? [],
       // Missing secrets count as configured only for providers that explicitly
-      // declare keyless mode in their ProviderEntry/capabilities.
+      // declare keyless mode in their capabilities.
       hasKey: ref !== undefined || isKeylessProviderAllowed(provider, entry),
-      requiresApiKey: !isKeylessProviderAllowed(provider, entry),
+      keyless: ref === undefined && isKeylessProviderAllowed(provider, entry),
       ...(entry?.reasoningLevel !== undefined ? { reasoningLevel: entry.reasoningLevel } : {}),
       ...(entry?.tlsRejectUnauthorized === true ? { tlsRejectUnauthorized: true } : {}),
       ...(rowError !== undefined ? { error: rowError } : {}),
@@ -200,12 +145,9 @@ export function computeDeleteProviderResult(cfg: Config, toDelete: string): Dele
   }
 
   const entry = resolveEntryFor(cfg, nextActive);
-  const nextModel = isSupportedOnboardingProvider(nextActive)
-    ? PROVIDER_SHORTLIST[nextActive].defaultPrimary
-    : (entry?.defaultModel ?? '');
   return {
     nextActive,
-    modelPrimary: nextModel,
+    modelPrimary: entry?.models[0] ?? '',
   };
 }
 
@@ -240,12 +182,15 @@ export function resolveActiveModel(
   const allowKeyless = isKeylessProviderAllowed(activeId, entry);
   if (cfg.secrets[activeId] === undefined && !allowKeyless) {
     throw new CodesignError(
-      `No API key stored for active provider "${activeId}". Re-run onboarding to add one.`,
+      `No API key stored for active provider "${activeId}". Add one in Settings.`,
       ERROR_CODES.PROVIDER_KEY_MISSING,
     );
   }
   const overridden = activeId !== hint.provider;
-  const modelId = overridden ? cfg.activeModel : hint.modelId;
+  // Guard against a hand-edited config whose activeModel drifted out of the
+  // entry's manually-configured list — fall back to the first listed model.
+  const hinted = overridden ? cfg.activeModel : hint.modelId;
+  const modelId = entry.models.includes(hinted) ? hinted : (entry.models[0] ?? cfg.activeModel);
   return {
     model: { provider: activeId, modelId },
     baseUrl: entry.baseUrl,

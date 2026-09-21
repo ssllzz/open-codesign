@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  canonicalBaseUrl,
-  ensureVersionedBase,
-  modelsEndpointUrl,
-  stripInferenceEndpointSuffix,
-} from './base-url';
+import { canonicalBaseUrl, ensureVersionedBase, stripInferenceEndpointSuffix } from './base-url';
 
 describe('stripInferenceEndpointSuffix', () => {
   // ── API root cases: leave untouched ──────────────────────────────────────
@@ -359,27 +354,6 @@ describe('canonicalBaseUrl', () => {
     );
   });
 
-  // ── openai-codex-responses: pass through untouched ───────────────────────
-  // pi-ai's codex wire appends `/codex/responses` from the bare base, so our
-  // canonicalization must not strip anything except trailing slashes.
-  it('openai-codex-responses: passes bare base through', () => {
-    expect(canonicalBaseUrl('https://chatgpt.com/backend-api', 'openai-codex-responses')).toBe(
-      'https://chatgpt.com/backend-api',
-    );
-  });
-
-  it('openai-codex-responses: strips trailing slashes only', () => {
-    expect(canonicalBaseUrl('https://chatgpt.com/backend-api///', 'openai-codex-responses')).toBe(
-      'https://chatgpt.com/backend-api',
-    );
-  });
-
-  it('openai-codex-responses: does NOT strip /responses suffix (pi-ai handles that)', () => {
-    expect(
-      canonicalBaseUrl('https://chatgpt.com/backend-api/codex/responses', 'openai-codex-responses'),
-    ).toBe('https://chatgpt.com/backend-api/codex/responses');
-  });
-
   // ── Idempotence across wires ─────────────────────────────────────────────
   it('is idempotent for anthropic', () => {
     const once = canonicalBaseUrl('https://api.anthropic.com/v1/messages', 'anthropic');
@@ -392,57 +366,5 @@ describe('canonicalBaseUrl', () => {
       'openai-chat',
     );
     expect(canonicalBaseUrl(once, 'openai-chat')).toBe(once);
-  });
-});
-
-describe('modelsEndpointUrl', () => {
-  it('anthropic: root + /v1/models', () => {
-    expect(modelsEndpointUrl('https://api.anthropic.com/v1/messages', 'anthropic')).toBe(
-      'https://api.anthropic.com/v1/models',
-    );
-  });
-
-  it('anthropic: preserves subpath', () => {
-    expect(modelsEndpointUrl('https://api.minimax.io/anthropic', 'anthropic')).toBe(
-      'https://api.minimax.io/anthropic/v1/models',
-    );
-  });
-
-  it('openai-chat: versioned base + /models', () => {
-    expect(modelsEndpointUrl('https://api.openai.com', 'openai-chat')).toBe(
-      'https://api.openai.com/v1/models',
-    );
-  });
-
-  it('openai-chat: GLM /api/paas/v4/models', () => {
-    expect(
-      modelsEndpointUrl('https://open.bigmodel.cn/api/paas/v4/chat/completions', 'openai-chat'),
-    ).toBe('https://open.bigmodel.cn/api/paas/v4/models');
-  });
-
-  it('openai-chat: Volcengine /api/v3/models', () => {
-    expect(
-      modelsEndpointUrl('https://ark.cn-beijing.volces.com/api/v3/chat/completions', 'openai-chat'),
-    ).toBe('https://ark.cn-beijing.volces.com/api/v3/models');
-  });
-
-  it('openai-chat: Google /v1beta/openai/models', () => {
-    expect(
-      modelsEndpointUrl(
-        'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-        'openai-chat',
-      ),
-    ).toBe('https://generativelanguage.googleapis.com/v1beta/openai/models');
-  });
-
-  // ── openai-codex-responses: no discoverable /models endpoint ─────────────
-  // ChatGPT subscription's model listing requires OAuth bearer +
-  // chatgpt-account-id headers that the keyless discovery path can't supply.
-  // Callers short-circuit via ProviderEntry.modelsHint; the throw surfaces
-  // the programming error if anyone reaches this function.
-  it('openai-codex-responses: throws with an actionable hint', () => {
-    expect(() =>
-      modelsEndpointUrl('https://chatgpt.com/backend-api', 'openai-codex-responses'),
-    ).toThrow(/modelsHint/);
   });
 });

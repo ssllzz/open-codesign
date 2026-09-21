@@ -33,7 +33,7 @@
     "comingSoon": "Em breve",
     "loading": "Carregando…",
     "preAlpha": "pré-alfa",
-    "tagline": "BYOK · login ChatGPT · local-first",
+    "tagline": "BYOK · local-first",
     "done": "Pronto.",
     "applied": "Aplicado.",
     "working": "Trabalhando"
@@ -332,20 +332,6 @@
     },
     "providers": {
       "sectionTitle": "Provedores de API",
-      "chatgptLogin": {
-        "title": "Entrar com assinatura do ChatGPT",
-        "description": "Use a cota do seu plano ChatGPT Plus / Pro / Team para chamar modelos Codex (gpt-5.5 e afins) — sem precisar de chave de API.",
-        "signIn": "Entrar com ChatGPT",
-        "inProgress": "Navegador aberto. Conclua a autorização e voltamos automaticamente…",
-        "loggedInBadge": "Conectado com ChatGPT",
-        "logout": "Sair",
-        "confirmLogout": "Sair da assinatura do ChatGPT?",
-        "loginFailedTitle": "Falha ao entrar no ChatGPT",
-        "logoutFailedTitle": "Falha ao sair do ChatGPT",
-        "statusFailedTitle": "Falha ao verificar status do ChatGPT",
-        "unknownError": "Erro desconhecido",
-        "unsupportedCountryRegion": "O login com assinatura do ChatGPT não está disponível para esta conta, país, região ou território."
-      },
       "addProvider": "Adicionar provedor",
       "addCustom": "Adicionar personalizado",
       "empty": "Nenhum provedor configurado ainda. Adicione um para começar a gerar.",
@@ -378,15 +364,15 @@
         "apiKeyEditPlaceholder": "Deixe vazio para manter {{mask}}",
         "keylessLabel": "Não requer chave de API",
         "keylessDescription": "Ative apenas para endpoints que aceitam solicitações sem chave de API. Ao mudar para este modo, a chave armazenada será removida ao salvar.",
-        "defaultModel": "Modelo padrão",
         "compatibilityHintTitle": "Aviso de compatibilidade",
         "compatibilityHintBody": "Alguns coding plans, relays e gateways compatíveis com OpenAI só permitem clientes específicos, como Claude Code, openclaw ou Hermes. Mesmo que a API pareça compatível, o Open CoDesign ainda pode ser bloqueado por uma lista de apps permitidos.",
         "test": "Testar conexão",
-        "testOk": "OK — {{count}} modelos disponíveis",
+        "testOk": "Conectado — o modelo respondeu",
         "save": "Salvar e continuar",
         "saveEdit": "Salvar alterações",
-        "switchToDropdown": "Escolher da lista",
-        "switchToManual": "Digitar manualmente"
+        "models": "Modelos",
+        "modelsHint": "Insira os IDs de modelo manualmente (separados por vírgula ou nova linha).",
+        "allowPrivateNetwork": "Permitir testar URLs de provedor em rede local ou privada neste computador"
       },
       "tlsRejectUnauthorized": {
         "label": "Desativar verificação TLS (inseguro — apenas para endpoints internos)",
@@ -397,55 +383,6 @@
         "confirmCancel": "Cancelar",
         "badge": "TLS sem verificação",
         "badgeTooltip": "A verificação do certificado TLS está desativada para este provedor. Usada para conectar a endpoints internos com certificados autoassinados ou de CA privada. Aumenta a superfície de ataque — ative apenas em redes confiáveis."
-      },
-      "import": {
-        "action": "Importar",
-        "dismiss": "Dispensar",
-        "codexFound": "Codex detectado — importar {{count}} provedores?",
-        "claudeCodeOAuthTitle": "Assinatura do Claude Code detectada",
-        "claudeCodeOAuthBody": "Sua assinatura Pro/Max só pode ser usada pelo próprio Claude Code. Apps de terceiros não podem reutilizar a cota da assinatura. Gere uma chave de API no Anthropic Console (mesma conta, cobrada por token) para usar Claude aqui.",
-        "claudeCodeOAuthCtaConsole": "Obter chave no Anthropic Console ↗",
-        "claudeCodeHasKeyBody": "Encontramos uma chave em {{source}} para o gateway em {{baseUrl}} — clique em Importar para usá-la aqui.",
-        "claudeCodeHasKeySourceSettings": "~/.claude/settings.json",
-        "claudeCodeHasKeySourceEnv": "env do shell",
-        "claudeCodeLocalProxyBody": "Parece um proxy local em {{baseUrl}}. É a configuração típica para reutilizar uma assinatura OAuth por meio de ferramentas como Claude Code Proxy.",
-        "claudeCodeLocalProxyAction": "Cole a chave para usar o proxy",
-        "claudeCodeRemoteGatewayBody": "O gateway em {{baseUrl}} não tem chave de API na sua configuração do Claude Code. Importe o gateway e depois cole uma chave em Configurações.",
-        "claudeCodeRemoteGatewayAction": "Cole a chave para usar o gateway",
-        "oauthErrorToast": "A assinatura do Claude Code não pode ser compartilhada com apps de terceiros. Gere uma chave de API no Anthropic Console.",
-        "oauthErrorToastCta": "Obter chave ↗",
-        "codexDone": "Provedores do Codex importados",
-        "geminiFound": "Chave da Gemini CLI detectada — importar?",
-        "geminiNoKey": "Configuração da Gemini CLI encontrada, mas sem chave em ~/.gemini/.env ou ~/.env. Cole uma chave manualmente para usar o Gemini aqui.",
-        "geminiBlocked": "Projetos do Google Vertex AI ainda não são suportados — cole uma chave da Gemini Developer API (começa com AIzaSy…) para usar o Gemini aqui.",
-        "geminiDone": "Provedor do Gemini importado",
-        "opencodeFound": "OpenCode detectado — importar {{count}} provedores ({{providers}})?",
-        "opencodeDone": "Provedores do OpenCode importados",
-        "claudeCodeImportedActivated": "Claude Code importado e definido como provedor ativo",
-        "claudeCodeOpenSettings": "Abrir Configurações",
-        "claudeCodeIHaveKey": "Tenho uma chave de API — colar aqui",
-        "claudeCodeShellEnvHint": "Ou: exporte ANTHROPIC_API_KEY no seu shell e reabra pelo Terminal — vamos detectar automaticamente.",
-        "claudeCodeParseErrorTitle": "Configuração do Claude Code inválida",
-        "claudeCodeParseErrorBody": "Não foi possível ler ~/.claude/settings.json: {{reason}}.",
-        "claudeCodeParseErrorReasonNotObject": "o valor no nível superior não é um objeto JSON",
-        "claudeCodeWarningsMore": "+{{count}} a mais",
-        "claudeCodeParseErrorCopyPath": "Copiar caminho do arquivo",
-        "claudeCodeParseErrorPathCopied": "Caminho copiado para a área de transferência",
-        "claudeCodeAnthropicPresetName": "Anthropic",
-        "claudeCodeLocalProxyPresetName": "Claude Code Proxy (local)",
-        "claudeCodeRemoteGatewayPresetName": "Claude Code Gateway",
-        "failed": "Falha na importação",
-        "codexMenu": "Importar do Codex",
-        "codexMenuDesc": "Ler ~/.codex/config.toml",
-        "claudeCodeMenu": "Importar do Claude Code",
-        "claudeCodeMenuDesc": "Ler a sessão autenticada do Claude Code",
-        "customMenu": "Provedor personalizado",
-        "customMenuDesc": "Inserir chave de API e URL manualmente",
-        "alreadyImported": "Já importado",
-        "opencodeBlocked": "Configuração do OpenCode detectada, mas nada pode ser importado. Veja o aviso acima, corrija o auth.json e tente novamente.",
-        "ollamaMenu": "Ollama (local)",
-        "ollamaMenuDesc": "Adicionar o provedor local em localhost:11434",
-        "ollamaDone": "Provedor Ollama adicionado"
       },
       "modal": {
         "title": "Adicionar provedor",
@@ -490,16 +427,7 @@
         "xhigh": "Muito alta"
       },
       "addKey": "Adicionar chave",
-      "missingKey": "Chave ausente",
-      "cliProxyApi": {
-        "presetName": "CLIProxyAPI",
-        "presetDescription": "Proxy local que encapsula assinaturas OAuth do Claude/Codex/Gemini",
-        "apiKeyOptional": "Chave de API só é necessária se você configurou `api-keys` no config.yaml do CPA",
-        "thinkingHint": "Dica: acrescente `(high)` / `(xhigh)` / `(8192)` ao nome do modelo para controlar o orçamento de raciocínio",
-        "discoveringModels": "Descobrindo modelos...",
-        "discoveredModels": "{{count}} modelos encontrados",
-        "discoveryFailed": "Não foi possível conectar ao CPA"
-      }
+      "missingKey": "Chave ausente"
     },
     "appearance": {
       "themeTitle": "Tema",
@@ -596,103 +524,6 @@
     "bannerAvailable": "{{appName}} {{version}} está disponível.",
     "bannerViewRelease": "Ver lançamento",
     "bannerDismissAria": "Dispensar aviso de atualização"
-  },
-  "onboarding": {
-    "stepperLabel": "Passo {{current}} de {{total}}",
-    "welcome": {
-      "title": "Crie designs com qualquer modelo.",
-      "subtitle": "Escolha como quer impulsionar seus designs. Dá para mudar depois em Configurações.",
-      "tryFree": "Experimentar grátis",
-      "tryFreeSubtitle": "Nível gratuito do OpenRouter — cole uma chave do OpenRouter e comece com openrouter/free ou digite qualquer ID de modelo.",
-      "useKey": "Usar minha chave de API",
-      "useKeySubtitle": "Anthropic, OpenAI ou OpenRouter. Detectado automaticamente pelo prefixo da chave.",
-      "useOllama": "Usar modelo local (Ollama)",
-      "useOllamaSubtitle": "Roda 100% local, sem custo de API. Precisa do Ollama instalado e rodando.",
-      "useOllamaDetected": "Ollama detectado — {{count}} modelos disponíveis localmente.",
-      "useOllamaNotRunning": "Ollama não detectado em localhost:11434. Instale ou inicie e tente novamente.",
-      "useOllamaProbing": "Procurando uma instância local do Ollama...",
-      "useOllamaRetry": "Verificar novamente",
-      "useOllamaInstall": "Instalar Ollama ↗",
-      "whereToGetKey": "Onde conseguir uma chave"
-    },
-    "paste": {
-      "title": "Cole sua chave de API",
-      "description": "O provedor é detectado automaticamente. Clique em Testar para verificar a chave e o endpoint antes de continuar. Sua chave fica armazenada localmente em ~/.config/open-codesign/config.toml (modo 0600).",
-      "placeholder": "sk-…",
-      "recognized": "Provedor detectado: {{provider}}",
-      "connected_one": "{{count}} modelo conectado",
-      "connected_other": "{{count}} modelos conectados",
-      "howToGet": "Como conseguir uma chave",
-      "getKey": "Obter chave",
-      "statusIdle": "Cole uma chave acima — o provedor é detectado pelo prefixo.",
-      "statusDetecting": "Detectando provedor...",
-      "statusValidating": "Reconhecido: {{provider}} — validando...",
-      "statusDetected": "Reconhecido: {{provider}} — clique em Testar para verificar",
-      "statusOk": "Reconhecido: {{provider}} — Conectado ({{count}} modelos)",
-      "errors": {
-        "401": "Chave de API inválida ou não autorizada. Confira no painel do provedor.",
-        "402": "Sua conta não tem crédito. Adicione crédito e tente novamente.",
-        "429": "Limite de requisições atingido. Aguarde um momento e tente novamente.",
-        "network": "Não foi possível acessar a URL base. Verifique domínio/porta/rede.",
-        "unsupported": "Prefixo de chave não reconhecido. Suportados: sk-ant- (Anthropic), sk- (OpenAI), sk-or- (OpenRouter).",
-        "notSupportedProvider": "{{provider}} não é suportado pelo atalho de primeiro uso. Use Anthropic, OpenAI, OpenRouter, Ollama, login por assinatura do ChatGPT ou adicione um provedor personalizado em Configurações.",
-        "rendererDisconnected": "O renderer não está conectado ao processo principal.",
-        "detectIpc": "Falha na detecção do provedor (processo principal inacessível): {{message}}. Reinicie o app e tente novamente.",
-        "detectNetwork": "Falha na detecção do provedor (erro de rede): {{message}}. Verifique sua conexão e tente novamente."
-      },
-      "advanced": {
-        "toggle": "Avançado — URL base personalizada (proxy / relay)",
-        "title": "Avançado — URL base personalizada",
-        "description": "Sobrescreve o endpoint padrão do seu provedor. Útil para serviços de relay e proxies self-hosted. Deixe vazio para usar o endpoint oficial."
-      },
-      "preset": {
-        "label": "Preset",
-        "placeholder": "-- escolha um preset --",
-        "hint": "Em dúvida? Escolha OpenAI Oficial para o endpoint oficial, ou selecione pelo nome do relay.",
-        "custom": "Personalizado"
-      },
-      "apiKey": {
-        "label": "Chave de API"
-      },
-      "baseUrl": {
-        "label": "URL base"
-      },
-      "connectionTest": {
-        "button": "Testar",
-        "testing": "Testando...",
-        "ok": "Conectado",
-        "okVerified": "Conectado — chave e endpoint verificados",
-        "idleHint": "Clique em Testar para verificar sua chave e conexão antes de continuar.",
-        "runFirst": "Clique em Testar primeiro para verificar sua conexão",
-        "errors": {
-          "401": "Chave de API inválida ou não autorizada.",
-          "404": "Caminho da URL base incorreto. Tente adicionar o sufixo /v1 (ex.: https://seu-host/v1).",
-          "ECONNREFUSED": "Não foi possível acessar a URL base. Verifique domínio/porta/rede.",
-          "NETWORK": "Erro de rede. Verifique sua conexão.",
-          "PARSE": "Resposta inesperada. Veja os logs em ~/Library/Logs/open-codesign/main.log",
-          "IPC_BAD_INPUT": "Entrada inválida enviada ao teste de conexão. Verifique os campos provedor / chave de API / URL base."
-        }
-      },
-      "back": "Voltar",
-      "continue": "Continuar"
-    },
-    "choose": {
-      "title": "Escolha os modelos padrão",
-      "description": "Comece com uma recomendação ou digite qualquer ID de modelo do provedor. Dá para trocar os modelos em cada design depois.",
-      "primary": "Modelo principal de design",
-      "fast": "Modelo rápido de resposta",
-      "primaryHint": "Usado para a geração completa do design.",
-      "fastHint": "Usado para edições rápidas e ajustes inline.",
-      "primaryHintFree": "A opção gratuita começa em openrouter/free, mas você pode digitar qualquer ID de modelo do OpenRouter.",
-      "fastHintFree": "Mantenha openrouter/free para o menor custo, ou troque por uma opção personalizada mais rápida.",
-      "customBaseUrl": "URL base personalizada: {{url}}",
-      "costNote": "O custo estimado varia por provedor, modelo escolhido e tamanho do prompt.",
-      "costNoteFree": "A disponibilidade das rotas gratuitas do OpenRouter pode mudar. Se nenhuma rota gratuita estiver disponível, digite outro ID de modelo aqui.",
-      "estimatedCost": "Custo estimado: {{amount}}",
-      "back": "Voltar",
-      "saving": "Salvando...",
-      "finish": "Concluir"
-    }
   },
   "topbar": {
     "modelSwitcher": {
@@ -1266,7 +1097,6 @@
     "PROVIDER_GATEWAY_INCOMPATIBLE": "Sua porta de entrada retornou 'não implementado' para a API de Mensagens. Tente mudar o protocolo para openai-chat nas Configurações, ou use uma porta de entrada que suporte a API de Mensagens da Anthropic.",
     "PROVIDER_ABORTED": "Geração cancelada.",
     "PROVIDER_RETRY_EXHAUSTED": "O provedor falhou após várias tentativas. Verifique sua conexão e tente novamente.",
-    "CLAUDE_CODE_OAUTH_ONLY": "Seu login no Claude Code usa uma assinatura Anthropic (Pro/Max). Apps de terceiros não podem reutilizar a cota da assinatura — gere uma chave de API em console.anthropic.com e use aqui.",
     "INPUT_EMPTY_PROMPT": "O prompt não pode estar vazio.",
     "INPUT_EMPTY_COMMENT": "O comentário não pode estar vazio.",
     "INPUT_EMPTY_HTML": "Um HTML existente é obrigatório para esta operação.",
@@ -1304,8 +1134,6 @@
     "EXPORTER_ZIP_UNSAFE_PATH": "A exportação foi bloqueada: um caminho de asset escaparia dos limites do arquivo ZIP.",
     "EXPORTER_ZIP_FAILED": "A exportação em ZIP falhou.",
     "OPEN_PATH_FAILED": "Não foi possível abrir a pasta ou arquivo solicitado.",
-    "RENDERER_ERROR": "Ocorreu um erro no renderer. Detalhes estão no log.",
-    "CODEX_TOKEN_NOT_LOGGED_IN": "Você não fez login na assinatura do ChatGPT. Faça login em Configurações.",
-    "CODEX_TOKEN_PARSE_FAILED": "O login local do ChatGPT está corrompido. Faça login novamente em Configurações."
+    "RENDERER_ERROR": "Ocorreu um erro no renderer. Detalhes estão no log."
   }
 }

@@ -69,17 +69,17 @@ describe('decryptSecret', () => {
 describe('migrateSecrets', () => {
   it('migrates plaintext rows to encrypted rows when safeStorage is available', () => {
     const cfg = hydrateConfig({
-      version: 3,
+      version: 4,
       activeProvider: 'openai',
       activeModel: 'gpt-5.4',
       providers: {
         openai: {
           id: 'openai',
           name: 'OpenAI',
-          builtin: true,
+
           wire: 'openai-chat',
           baseUrl: 'https://api.openai.com/v1',
-          defaultModel: 'gpt-5.4',
+          models: ['gpt-5.4'],
         },
       },
       secrets: { openai: { ciphertext: 'plain:sk-test-secret', mask: '' } },
@@ -96,17 +96,17 @@ describe('migrateSecrets', () => {
   it('keeps plaintext rows when safeStorage is unavailable', () => {
     vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(false);
     const cfg = hydrateConfig({
-      version: 3,
+      version: 4,
       activeProvider: 'openai',
       activeModel: 'gpt-5.4',
       providers: {
         openai: {
           id: 'openai',
           name: 'OpenAI',
-          builtin: true,
+
           wire: 'openai-chat',
           baseUrl: 'https://api.openai.com/v1',
-          defaultModel: 'gpt-5.4',
+          models: ['gpt-5.4'],
         },
       },
       secrets: { openai: { ciphertext: 'plain:sk-test-secret', mask: '' } },
@@ -121,17 +121,17 @@ describe('migrateSecrets', () => {
   it('rejects legacy secret rows that decrypt to an empty string', () => {
     vi.mocked(safeStorage.decryptString).mockReturnValueOnce('');
     const cfg = hydrateConfig({
-      version: 3,
+      version: 4,
       activeProvider: 'openai',
       activeModel: 'gpt-5.4',
       providers: {
         openai: {
           id: 'openai',
           name: 'OpenAI',
-          builtin: true,
+
           wire: 'openai-chat',
           baseUrl: 'https://api.openai.com/v1',
-          defaultModel: 'gpt-5.4',
+          models: ['gpt-5.4'],
         },
       },
       secrets: { openai: { ciphertext: 'legacy-ciphertext', mask: '' } },
@@ -142,17 +142,17 @@ describe('migrateSecrets', () => {
 
   it('rejects plaintext rows that need migration but contain an empty secret', () => {
     const cfg = hydrateConfig({
-      version: 3,
+      version: 4,
       activeProvider: 'openai',
       activeModel: 'gpt-5.4',
       providers: {
         openai: {
           id: 'openai',
           name: 'OpenAI',
-          builtin: true,
+
           wire: 'openai-chat',
           baseUrl: 'https://api.openai.com/v1',
-          defaultModel: 'gpt-5.4',
+          models: ['gpt-5.4'],
         },
       },
       secrets: { openai: { ciphertext: 'plain:', mask: '' } },

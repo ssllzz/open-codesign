@@ -2,9 +2,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AddCustomProviderModal,
-  buildEndpointDiscoveryPayload,
-  buildProviderAuthPayload,
-  buildProviderAuthUpdate,
+  buildKeylessPayload,
+  parseModelsInput,
 } from './AddCustomProviderModal';
 
 vi.mock('@open-codesign/i18n', () => ({
@@ -12,7 +11,7 @@ vi.mock('@open-codesign/i18n', () => ({
 }));
 
 describe('AddCustomProviderModal', () => {
-  it('shows the compatibility warning for editable custom endpoints', () => {
+  it('shows the compatibility warning and keyless opt-in for the add form', () => {
     const html = renderToStaticMarkup(
       <AddCustomProviderModal onSave={() => undefined} onClose={() => undefined} />,
     );
@@ -21,112 +20,76 @@ describe('AddCustomProviderModal', () => {
     expect(html).toContain('settings.providers.custom.compatibilityHintBody');
     expect(html).toContain('settings.providers.custom.allowPrivateNetwork');
     expect(html).toContain('settings.providers.custom.keylessLabel');
+    expect(html).toContain('settings.providers.custom.modelsHint');
     expect(html).not.toMatch(/type="checkbox"[^>]*checked/);
   });
 
-  it('hides the compatibility warning when editing a locked builtin endpoint', () => {
+  it('pre-fills the models textarea in edit mode', () => {
     const html = renderToStaticMarkup(
       <AddCustomProviderModal
         onSave={() => undefined}
         onClose={() => undefined}
         editTarget={{
-          id: 'anthropic',
-          name: 'Anthropic',
-          baseUrl: 'https://api.anthropic.com',
+          id: 'volcano',
+          name: '火山',
+          baseUrl: 'https://ark.cn-beijing.volces.com/api/plan',
           wire: 'anthropic',
-          defaultModel: 'claude-sonnet-4-5',
-          builtin: true,
-          lockEndpoint: true,
+          models: ['kimi-k2.8-preview', 'kimi-k3'],
         }}
       />,
     );
 
-    expect(html).not.toContain('settings.providers.custom.compatibilityHintTitle');
-    expect(html).not.toContain('settings.providers.custom.compatibilityHintBody');
-    expect(html).not.toContain('settings.providers.custom.keylessLabel');
+    expect(html).toContain('kimi-k2.8-preview, kimi-k3');
   });
 
-  it('builds endpoint discovery payloads from the latest private-network opt-in value', () => {
-    expect(
-      buildEndpointDiscoveryPayload('openai-chat', ' http://127.0.0.1:8317 ', true, false, false),
-    ).toEqual({
-      wire: 'openai-chat',
-      baseUrl: 'http://127.0.0.1:8317',
-      apiKey: '',
-      requiresApiKey: false,
-      allowPrivateNetwork: true,
-    });
-  });
-
-  it('does not automatically discover endpoints without an explicit keyless opt-in', () => {
-    expect(
-      buildEndpointDiscoveryPayload('openai-chat', 'https://provider.example/v1', false),
-    ).toBeNull();
-    expect(
-      buildEndpointDiscoveryPayload(
-        'openai-responses',
-        'http://127.0.0.1:18537/v1',
-        true,
-        false,
-        true,
-      ),
-    ).toBeNull();
-  });
-
-  it('restores the keyless edit state and disables the API key input', () => {
+  it('shows the stored key mask as the API key placeholder in edit mode', () => {
     const html = renderToStaticMarkup(
       <AddCustomProviderModal
         onSave={() => undefined}
         onClose={() => undefined}
         editTarget={{
-          id: 'custom-coproxy',
-          name: 'CoProxy',
-          baseUrl: 'http://127.0.0.1:18537/v1',
-          wire: 'openai-responses',
-          defaultModel: 'gpt-6-astra',
-          builtin: false,
-          lockEndpoint: false,
-          requiresApiKey: false,
+          id: 'volcano',
+          name: '火山',
+          baseUrl: 'https://ark.cn-beijing.volces.com/api/plan',
+          wire: 'anthropic',
+          models: ['kimi-k2.8-preview'],
+          keyMask: 'ark-***3d6e',
         }}
       />,
     );
-    expect(html).toMatch(/type="checkbox"[^>]*checked/);
-    expect(html).toMatch(/type="password"[^>]*disabled/);
+
+    // The i18n mock returns the key verbatim; asserting the placeholder key
+    // proves the mask branch was taken (a missing mask renders 'sk-...').
+    expect(html).toContain('settings.providers.custom.apiKeyEditPlaceholder');
+  });
+});
+
+describe('parseModelsInput', () => {
+  it('splits comma / whitespace / newline separated ids and dedupes', () => {
+    expect(parseModelsInput('kimi-k2.8-preview, kimi-k3\nglm-5.2  deepseek-v4')).toEqual([
+      'kimi-k2.8-preview',
+      'kimi-k3',
+      'glm-5.2',
+      'deepseek-v4',
+    ]);
+    expect(parseModelsInput('m1, m1, m1')).toEqual(['m1']);
   });
 
-  it('uses the selected authentication mode for create and explicit test payloads', () => {
-    expect(buildProviderAuthPayload(false, 'sk-stale')).toEqual({
-      requiresApiKey: false,
-      apiKey: '',
-    });
-    expect(buildProviderAuthPayload(true, ' sk-entered ')).toEqual({
-      requiresApiKey: true,
+  it('returns an empty list for blank input', () => {
+    expect(parseModelsInput('   ')).toEqual([]);
+  });
+});
+
+describe('buildKeylessPayload', () => {
+  it('blanks the key in keyless mode', () => {
+    expect(buildKeylessPayload(true, 'sk-stale')).toEqual({ keyless: true, apiKey: '' });
+  });
+
+  it('trims the key in keyed mode', () => {
+    expect(buildKeylessPayload(false, ' sk-entered ')).toEqual({
+      keyless: false,
       apiKey: 'sk-entered',
     });
-    expect(buildProviderAuthPayload(true, '')).toEqual({ requiresApiKey: true, apiKey: '' });
-  });
-
-  it('only clears a stored key when explicitly switching a custom provider to keyless', () => {
-    expect(buildProviderAuthUpdate(false, 'sk-stale', { builtin: false })).toEqual({
-      requiresApiKey: false,
-      apiKey: '',
-    });
-    expect(buildProviderAuthUpdate(false, '', { builtin: false, requiresApiKey: false })).toEqual(
-      {},
-    );
-    expect(buildProviderAuthUpdate(true, '', { builtin: false })).toEqual({});
-    expect(buildProviderAuthUpdate(false, '', { builtin: true })).toEqual({});
-  });
-
-  it('switches back to keyed mode and rotates only a supplied key', () => {
-    expect(
-      buildProviderAuthUpdate(true, ' sk-new ', { builtin: false, requiresApiKey: false }),
-    ).toEqual({
-      requiresApiKey: true,
-      apiKey: 'sk-new',
-    });
-    expect(buildProviderAuthUpdate(true, '', { builtin: false, requiresApiKey: false })).toEqual({
-      requiresApiKey: true,
-    });
+    expect(buildKeylessPayload(false, '')).toEqual({ keyless: false, apiKey: '' });
   });
 });

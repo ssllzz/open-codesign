@@ -4,10 +4,10 @@ import { join } from 'node:path';
 import {
   CodesignError,
   type Config,
-  ConfigV3Schema,
+  ConfigV4Schema,
   ERROR_CODES,
   parseConfigFlexible,
-  toPersistedV3,
+  toPersistedV4,
 } from '@open-codesign/shared';
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { getActiveStorageLocations } from './storage-settings';
@@ -79,12 +79,12 @@ function safeParseConfig(
 }
 
 export async function writeConfig(config: Config): Promise<void> {
-  const persisted = toPersistedV3(config);
+  const persisted = toPersistedV4(config);
   // Fail fast on shape drift at write-time instead of letting a broken
   // config land on disk and crash the NEXT boot. This is how the v0.1
   // "app won't reopen after deleting all providers" bug shipped —
   // activeModel='' was written here, then readConfig's parse rejected it.
-  ConfigV3Schema.parse(persisted);
+  ConfigV4Schema.parse(persisted);
   const dir = configDir();
   await mkdir(dir, { recursive: true });
   const path = configPath();

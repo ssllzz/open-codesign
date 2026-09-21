@@ -24,7 +24,6 @@ import {
   updateUserMemory,
   updateWorkspaceMemory,
 } from '@open-codesign/core';
-import { getCodexTokenStore } from './codex-oauth-ipc';
 import { app, ipcMain, shell } from './electron-runtime';
 import { getLogger } from './logger';
 import { getApiKeyForProvider, getCachedConfig, hasApiKeyForProvider } from './onboarding-ipc';
@@ -393,7 +392,6 @@ async function resolveUserMemoryConsolidationOptions(
     modelId: cfg.activeModel,
   });
   const apiKey = await resolveCredentialForProvider(active.model.provider, active.allowKeyless, {
-    getCodexAccessToken: () => getCodexTokenStore().getValidAccessToken(),
     getApiKeyForProvider,
     hasApiKeyForProvider,
   });

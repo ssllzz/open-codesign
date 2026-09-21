@@ -1,7 +1,5 @@
-export { detectChatgptSubscription } from './onboarding/chatgpt-detect';
 export {
   getApiKeyForProvider,
-  getBaseUrlForProvider,
   getCachedConfig,
   getOnboardingState,
   hasApiKeyForProvider,

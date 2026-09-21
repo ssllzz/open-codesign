@@ -1,14 +1,23 @@
 import {
-  BUILTIN_PROVIDERS,
   CodesignError,
   type Config,
   hydrateConfig,
+  type ProviderEntry,
 } from '@open-codesign/shared';
+
+const OLLAMA_ENTRY: ProviderEntry = {
+  id: 'ollama',
+  name: 'Ollama (local)',
+  wire: 'openai-chat',
+  baseUrl: 'http://localhost:11434/v1',
+  models: ['llama3.2'],
+  capabilities: { supportsKeyless: true },
+};
+
 import { describe, expect, it } from 'vitest';
 import {
   assertProviderHasStoredSecret,
   computeDeleteProviderResult,
-  getAddProviderDefaults,
   isKeylessProviderAllowed,
   resolveActiveModel,
   toProviderRows,
@@ -25,73 +34,37 @@ function makeCfg(input: {
     anthropic: {
       id: 'anthropic',
       name: 'Anthropic Claude',
-      builtin: true,
+
       wire: 'anthropic',
       baseUrl: input.baseUrls?.['anthropic'] ?? 'https://api.anthropic.com',
-      defaultModel: 'claude-sonnet-4-6',
+      models: ['claude-sonnet-4-6'],
     },
     openai: {
       id: 'openai',
       name: 'OpenAI',
-      builtin: true,
+
       wire: 'openai-chat',
       baseUrl: input.baseUrls?.['openai'] ?? 'https://api.openai.com/v1',
-      defaultModel: 'gpt-4o',
+      models: ['gpt-4o'],
     },
     openrouter: {
       id: 'openrouter',
       name: 'OpenRouter',
-      builtin: true,
+
       wire: 'openai-chat',
       baseUrl: input.baseUrls?.['openrouter'] ?? 'https://openrouter.ai/api/v1',
-      defaultModel: 'anthropic/claude-sonnet-4.6',
+      models: ['anthropic/claude-sonnet-4.6'],
     },
     ...(input.providers ?? {}),
   };
   return hydrateConfig({
-    version: 3,
+    version: 4,
     activeProvider: input.provider,
     activeModel: input.modelPrimary,
     secrets: input.secrets ?? {},
     providers,
   });
 }
-
-describe('getAddProviderDefaults', () => {
-  it('activates the newly added provider when the cached active provider has no saved secret', () => {
-    const cfg = makeCfg({ provider: 'openai', modelPrimary: 'gpt-4o' });
-
-    const defaults = getAddProviderDefaults(cfg, {
-      provider: 'anthropic',
-      modelPrimary: 'claude-sonnet-4-6',
-    });
-
-    expect(defaults).toEqual({
-      activeProvider: 'anthropic',
-      modelPrimary: 'claude-sonnet-4-6',
-    });
-  });
-
-  it('preserves an explicitly keyless active provider when adding another provider', () => {
-    const cfg = makeCfg({
-      provider: 'ollama',
-      modelPrimary: 'llama3.2',
-      providers: {
-        ollama: BUILTIN_PROVIDERS.ollama,
-      },
-    });
-
-    const defaults = getAddProviderDefaults(cfg, {
-      provider: 'anthropic',
-      modelPrimary: 'claude-sonnet-4-6',
-    });
-
-    expect(defaults).toEqual({
-      activeProvider: 'ollama',
-      modelPrimary: 'llama3.2',
-    });
-  });
-});
 
 describe('toProviderRows', () => {
   it('returns a row with error:decryption_failed and empty maskedKey when decrypt throws', () => {
@@ -161,7 +134,7 @@ describe('toProviderRows', () => {
       modelPrimary: 'gpt-4o',
       secrets: { openai: { ciphertext: 'enc' } },
       providers: {
-        ollama: { ...BUILTIN_PROVIDERS.ollama },
+        ollama: OLLAMA_ENTRY,
       },
     });
 
@@ -196,10 +169,10 @@ describe('assertProviderHasStoredSecret', () => {
         'codex-proxy': {
           id: 'codex-proxy',
           name: 'Codex (imported)',
-          builtin: false,
+
           wire: 'openai-responses',
           baseUrl: 'https://proxy.example.com/v1',
-          defaultModel: 'gpt-5.3-codex',
+          models: ['gpt-5.3-codex'],
         },
       },
     });
@@ -207,99 +180,85 @@ describe('assertProviderHasStoredSecret', () => {
     expect(() => assertProviderHasStoredSecret(cfg, 'codex-proxy')).toThrow(CodesignError);
   });
 
-  it('allows imported Codex providers that explicitly declare keyless support', () => {
+  it('allows providers that explicitly declare keyless support', () => {
     const cfg = makeCfg({
-      provider: 'codex-proxy',
-      modelPrimary: 'gpt-5.3-codex',
+      provider: 'local-gateway',
+      modelPrimary: 'gpt-5.3',
       providers: {
-        'codex-proxy': {
-          id: 'codex-proxy',
-          name: 'Codex (imported)',
-          builtin: false,
+        'local-gateway': {
+          id: 'local-gateway',
+          name: 'Local Gateway',
+
           wire: 'openai-responses',
           baseUrl: 'https://proxy.example.com/v1',
-          defaultModel: 'gpt-5.3-codex',
-          requiresApiKey: false,
+          models: ['gpt-5.3'],
+          capabilities: { supportsKeyless: true },
         },
       },
     });
 
-    expect(() => assertProviderHasStoredSecret(cfg, 'codex-proxy')).not.toThrow();
+    expect(() => assertProviderHasStoredSecret(cfg, 'local-gateway')).not.toThrow();
   });
 
-  it('throws for imported Codex providers that require a stored API key', () => {
+  it('throws for custom providers that require a stored API key', () => {
     const cfg = makeCfg({
-      provider: 'codex-custom',
+      provider: 'custom-gw',
       modelPrimary: 'gpt-5.4',
       providers: {
-        'codex-custom': {
-          id: 'codex-custom',
-          name: 'Codex (imported)',
-          builtin: false,
+        'custom-gw': {
+          id: 'custom-gw',
+          name: 'Custom Gateway',
+
           wire: 'openai-responses',
           baseUrl: 'https://api.duckcoding.ai/v1',
-          defaultModel: 'gpt-5.4',
-          requiresApiKey: true,
+          models: ['gpt-5.4'],
         },
       },
     });
 
-    expect(() => assertProviderHasStoredSecret(cfg, 'codex-custom')).toThrow(CodesignError);
+    expect(() => assertProviderHasStoredSecret(cfg, 'custom-gw')).toThrow(CodesignError);
   });
 });
 
 describe('isKeylessProviderAllowed', () => {
-  it('allows any provider whose entry declares requiresApiKey: false (e.g. Ollama)', () => {
-    const entry = {
-      id: 'ollama',
-      name: 'Ollama',
-      builtin: true,
+  it('allows any provider whose entry declares supportsKeyless (e.g. a local gateway)', () => {
+    const entry: ProviderEntry = {
+      id: 'local-llm',
+      name: 'Local LLM',
+
       wire: 'openai-chat',
       baseUrl: 'http://localhost:11434/v1',
-      defaultModel: 'llama3.2',
-      requiresApiKey: false,
-    } as const;
-    expect(isKeylessProviderAllowed('ollama', entry)).toBe(true);
+      models: ['llama3.2'],
+      capabilities: { supportsKeyless: true },
+    };
+    expect(isKeylessProviderAllowed('local-llm', entry)).toBe(true);
   });
 
   it('allows providers whose capability profile explicitly marks them keyless', () => {
-    const entry = {
+    const entry: ProviderEntry = {
       id: 'litellm-proxy',
       name: 'LiteLLM Proxy',
-      builtin: false,
+
       wire: 'openai-chat',
       baseUrl: 'https://proxy.example.com/v1',
-      defaultModel: 'gpt-4.1',
+      models: ['gpt-4.1'],
       capabilities: {
         supportsKeyless: true,
-        supportsModelsEndpoint: true,
-        modelDiscoveryMode: 'models',
+        supportsReasoning: true,
       },
-    } as const;
+    };
     expect(isKeylessProviderAllowed('litellm-proxy', entry)).toBe(true);
   });
 
-  it('rejects codex-family providers that do not explicitly declare keyless support', () => {
-    const entry = {
-      id: 'codex-oss',
-      name: 'Codex (imported)',
-      builtin: false,
-      wire: 'openai-chat',
-      baseUrl: 'https://proxy.example.com/v1',
-      defaultModel: 'gpt-5-codex',
-    } as const;
-    expect(isKeylessProviderAllowed('codex-oss', entry)).toBe(false);
-  });
-
-  it('rejects generic custom providers that never opted out of API keys', () => {
-    const entry = {
+  it('rejects custom providers that never opted out of API keys', () => {
+    const entry: ProviderEntry = {
       id: 'custom-foo',
       name: 'Foo',
-      builtin: false,
+
       wire: 'openai-chat',
       baseUrl: 'https://foo.example.com/v1',
-      defaultModel: 'foo-large',
-    } as const;
+      models: ['foo-large'],
+    };
     expect(isKeylessProviderAllowed('custom-foo', entry)).toBe(false);
   });
 });
@@ -377,18 +336,19 @@ describe('resolveActiveModel', () => {
     baseUrls: { openai: 'https://api.duckcoding.ai/v1' },
   });
 
-  it('returns the canonical active provider when the hint already matches', () => {
+  it('returns the canonical active provider, snapping a hint model outside the configured list', () => {
     const result = resolveActiveModel(baseCfg, {
       provider: 'openrouter',
       modelId: 'anthropic/claude-haiku-3',
     });
 
     expect(result.overridden).toBe(false);
+    // 'anthropic/claude-haiku-3' is not in the entry's manually-configured
+    // models list — fall back to the first listed model.
     expect(result.model).toEqual({
       provider: 'openrouter',
-      modelId: 'anthropic/claude-haiku-3',
+      modelId: 'anthropic/claude-sonnet-4.6',
     });
-    // openrouter default base url is the builtin one
     expect(result.baseUrl).toBe('https://openrouter.ai/api/v1');
   });
 
@@ -430,8 +390,11 @@ describe('resolveActiveModel', () => {
       },
       providers: {
         openai: {
-          ...BUILTIN_PROVIDERS.openai,
-          defaultModel: 'gpt-5.5',
+          id: 'openai',
+          name: 'OpenAI',
+          wire: 'openai-chat',
+          baseUrl: 'https://api.openai.com/v1',
+          models: ['gpt-5.5'],
           reasoningLevel: 'off',
         },
       },
@@ -492,10 +455,10 @@ describe('resolveActiveModel', () => {
         'codex-proxy': {
           id: 'codex-proxy',
           name: 'Codex (imported)',
-          builtin: false,
+
           wire: 'openai-responses',
           baseUrl: 'https://proxy.example.com/v1',
-          defaultModel: 'gpt-5.3-codex',
+          models: ['gpt-5.3-codex'],
         },
       },
     });
@@ -508,52 +471,51 @@ describe('resolveActiveModel', () => {
     ).toThrowError(CodesignError);
   });
 
-  it('allows active imported Codex providers that explicitly declare keyless support', () => {
+  it('allows active keyless providers that explicitly declare supportsKeyless', () => {
     const cfg = makeCfg({
-      provider: 'codex-proxy',
-      modelPrimary: 'gpt-5.3-codex',
+      provider: 'local-gateway',
+      modelPrimary: 'gpt-5.3',
       providers: {
-        'codex-proxy': {
-          id: 'codex-proxy',
-          name: 'Codex (imported)',
-          builtin: false,
+        'local-gateway': {
+          id: 'local-gateway',
+          name: 'Local Gateway',
+
           wire: 'openai-responses',
           baseUrl: 'https://proxy.example.com/v1',
-          defaultModel: 'gpt-5.3-codex',
-          requiresApiKey: false,
+          models: ['gpt-5.3'],
+          capabilities: { supportsKeyless: true },
         },
       },
     });
 
     const result = resolveActiveModel(cfg, {
-      provider: 'codex-proxy',
-      modelId: 'gpt-5.3-codex',
+      provider: 'local-gateway',
+      modelId: 'gpt-5.3',
     });
-    expect(result.model).toEqual({ provider: 'codex-proxy', modelId: 'gpt-5.3-codex' });
+    expect(result.model).toEqual({ provider: 'local-gateway', modelId: 'gpt-5.3' });
     expect(result.baseUrl).toBe('https://proxy.example.com/v1');
     expect(result.allowKeyless).toBe(true);
   });
 
-  it('throws for active imported Codex providers that require a stored secret', () => {
+  it('throws for active custom providers that require a stored secret', () => {
     const cfg = makeCfg({
-      provider: 'codex-custom',
+      provider: 'custom-gw',
       modelPrimary: 'gpt-5.4',
       providers: {
-        'codex-custom': {
-          id: 'codex-custom',
-          name: 'Codex (imported)',
-          builtin: false,
+        'custom-gw': {
+          id: 'custom-gw',
+          name: 'Custom Gateway',
+
           wire: 'openai-responses',
           baseUrl: 'https://api.duckcoding.ai/v1',
-          defaultModel: 'gpt-5.4',
-          requiresApiKey: true,
+          models: ['gpt-5.4'],
         },
       },
     });
 
     expect(() =>
       resolveActiveModel(cfg, {
-        provider: 'codex-custom',
+        provider: 'custom-gw',
         modelId: 'gpt-5.4',
       }),
     ).toThrowError(CodesignError);

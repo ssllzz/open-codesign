@@ -19,8 +19,6 @@ import {
 const mocks = vi.hoisted(() => ({
   cachedConfig: null as Config | null,
   getApiKeyForProvider: vi.fn<(provider: string) => string>(),
-  codexRead: vi.fn<() => Promise<unknown>>(),
-  codexGetValidAccessToken: vi.fn<() => Promise<string>>(),
   setCachedConfig: vi.fn<(config: Config) => void>(),
   writeConfig: vi.fn<(config: Config) => Promise<void>>(),
 }));
@@ -38,13 +36,6 @@ vi.mock('./onboarding-ipc', () => ({
     mocks.cachedConfig = config;
     mocks.setCachedConfig(config);
   },
-}));
-
-vi.mock('./codex-oauth-ipc', () => ({
-  getCodexTokenStore: () => ({
-    read: mocks.codexRead,
-    getValidAccessToken: mocks.codexGetValidAccessToken,
-  }),
 }));
 
 vi.mock('./keychain', () => ({
@@ -66,14 +57,13 @@ function makeConfig(imageEnabled: boolean): Config {
     openai: {
       id: 'openai',
       name: 'OpenAI',
-      builtin: true,
       wire: 'openai-chat',
       baseUrl: 'https://api.openai.com/v1',
-      defaultModel: 'gpt-5.4',
+      models: ['gpt-5.4'],
     },
   };
   return hydrateConfig({
-    version: 3,
+    version: 4,
     activeProvider: 'openai',
     activeModel: 'gpt-5.4',
     providers,
@@ -115,8 +105,6 @@ describe('image generation enablement', () => {
   afterEach(() => {
     mocks.cachedConfig = null;
     getApiKeyForProviderMock.mockReset();
-    mocks.codexRead.mockReset();
-    mocks.codexGetValidAccessToken.mockReset();
     mocks.setCachedConfig.mockReset();
     mocks.writeConfig.mockReset();
   });
@@ -150,7 +138,7 @@ describe('image generation enablement', () => {
   it('throws PROVIDER_KEY_MISSING when custom credential mode has no custom key', async () => {
     const cfg = makeConfig(true);
     const parsed = hydrateConfig({
-      version: 3,
+      version: 4,
       activeProvider: cfg.activeProvider,
       activeModel: cfg.activeModel,
       providers: cfg.providers,
@@ -201,127 +189,10 @@ describe('image generation enablement', () => {
     await expectRejectCode(imageGenerationKeyAvailable(cfg), ERROR_CODES.KEYCHAIN_UNAVAILABLE);
   });
 
-  it('resolves ChatGPT subscription image generation through the OAuth token store', async () => {
-    mocks.codexGetValidAccessToken.mockResolvedValue('oauth-token');
-    const cfg = hydrateConfig({
-      version: 3,
-      activeProvider: 'chatgpt-codex',
-      activeModel: 'gpt-5.5',
-      providers: {
-        'chatgpt-codex': {
-          id: 'chatgpt-codex',
-          name: 'ChatGPT subscription',
-          builtin: false,
-          wire: 'openai-codex-responses',
-          baseUrl: 'https://chatgpt.com/backend-api',
-          defaultModel: 'gpt-5.5',
-          requiresApiKey: false,
-        },
-      },
-      secrets: {},
-      imageGeneration: {
-        schemaVersion: IMAGE_GENERATION_SCHEMA_VERSION,
-        enabled: true,
-        provider: 'chatgpt-codex',
-        credentialMode: 'inherit',
-        model: 'gpt-5.5',
-        quality: 'high',
-        size: '1536x1024',
-        outputFormat: 'png',
-      },
-    });
-
-    await expect(resolveImageGenerationConfig(cfg)).resolves.toMatchObject({
-      provider: 'chatgpt-codex',
-      model: 'gpt-5.5',
-      apiKey: 'oauth-token',
-      baseUrl: 'https://chatgpt.com/backend-api',
-    });
-    expect(getApiKeyForProviderMock).not.toHaveBeenCalled();
-  });
-
-  it('reports ChatGPT subscription inherited credential availability from OAuth status', async () => {
-    mocks.codexRead.mockResolvedValue({
-      schemaVersion: 1,
-      accessToken: 'token',
-      refreshToken: 'refresh',
-      idToken: 'id',
-      expiresAt: Date.now() + 1000,
-      accountId: 'acct',
-      email: 'person@example.com',
-      updatedAt: Date.now(),
-    });
-    const view = await imageSettingsToView({
-      schemaVersion: IMAGE_GENERATION_SCHEMA_VERSION,
-      enabled: true,
-      provider: 'chatgpt-codex',
-      credentialMode: 'inherit',
-      model: 'gpt-5.5',
-      quality: 'high',
-      size: '1536x1024',
-      outputFormat: 'png',
-    });
-
-    expect(view.inheritedKeyAvailable).toBe(true);
-  });
-
-  it('reports ChatGPT subscription key availability from imageGenerationKeyAvailable', async () => {
-    const cfg = hydrateConfig({
-      version: 3,
-      activeProvider: 'openai',
-      activeModel: 'gpt-5.4',
-      providers: {
-        openai: {
-          id: 'openai',
-          name: 'OpenAI',
-          builtin: true,
-          wire: 'openai-chat',
-          baseUrl: 'https://api.openai.com/v1',
-          defaultModel: 'gpt-5.4',
-        },
-        'chatgpt-codex': {
-          id: 'chatgpt-codex',
-          name: 'ChatGPT subscription',
-          builtin: false,
-          wire: 'openai-codex-responses',
-          baseUrl: 'https://chatgpt.com/backend-api',
-          defaultModel: 'gpt-5.5',
-          requiresApiKey: false,
-        },
-      },
-      secrets: {},
-      imageGeneration: {
-        schemaVersion: IMAGE_GENERATION_SCHEMA_VERSION,
-        enabled: true,
-        provider: 'chatgpt-codex',
-        credentialMode: 'inherit',
-        model: 'gpt-5.5',
-        quality: 'high',
-        size: '1536x1024',
-        outputFormat: 'png',
-      },
-    });
-
-    mocks.codexRead.mockResolvedValue({
-      schemaVersion: 1,
-      accessToken: 'token',
-      refreshToken: 'refresh',
-      idToken: 'id',
-      expiresAt: Date.now() + 1000,
-      accountId: 'acct',
-      email: 'person@example.com',
-      updatedAt: Date.now(),
-    });
-    await expect(imageGenerationKeyAvailable(cfg)).resolves.toBe(true);
-
-    mocks.codexRead.mockResolvedValue(null);
-    await expect(imageGenerationKeyAvailable(cfg)).resolves.toBe(false);
-  });
-
   it('clears provider-scoped custom keys when the image provider changes', async () => {
     const cfg = makeConfig(true);
     mocks.cachedConfig = hydrateConfig({
-      version: 3,
+      version: 4,
       activeProvider: cfg.activeProvider,
       activeModel: cfg.activeModel,
       providers: cfg.providers,

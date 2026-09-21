@@ -189,8 +189,6 @@ const EMPTY_USAGE: PiUsage = {
   },
 };
 
-const MAX_TOTAL_CODEX_IMAGE_BYTES = 4_000_000;
-
 /**
  * `reasoning: true` on a synthesized PiModel makes pi-ai's openai-responses /
  * openai-chat adapters write the system prompt with role `'developer'`
@@ -251,9 +249,7 @@ export function inferReasoning(
 ): boolean {
   switch (wire) {
     case 'anthropic':
-      return true;
     case 'openai-responses':
-    case 'openai-codex-responses':
       return true;
     case 'openai-chat':
       if (isKnownOpenAIChatNonReasoningModelId(modelId)) {
@@ -325,18 +321,13 @@ function synthesizeWireModel(
   baseUrl: string | undefined,
 ): PiModel {
   const supportsImageInput =
-    wire === 'anthropic' ||
-    wire === 'openai-chat' ||
-    wire === 'openai-responses' ||
-    wire === 'openai-codex-responses';
+    wire === 'anthropic' || wire === 'openai-chat' || wire === 'openai-responses';
   const api =
     wire === 'anthropic'
       ? 'anthropic-messages'
       : wire === 'openai-responses'
         ? 'openai-responses'
-        : wire === 'openai-codex-responses'
-          ? 'openai-codex-responses'
-          : 'openai-completions';
+        : 'openai-completions';
   const base: PiModel = {
     id: modelId,
     name: modelId,
@@ -461,7 +452,6 @@ export async function complete(
     piOpts.headers = { ...claudeCodeIdentityHeaders(), ...(piOpts.headers ?? {}) };
   }
 
-  validateCodexImageInputs(opts);
   const result = await pi.completeSimple(piModel, piContext, piOpts);
 
   assertCompleteStop(result);
@@ -499,27 +489,6 @@ function assertCompleteStop(result: PiAssistantMessage): void {
       ? 'Provider returned an unresolved tool call in a non-tool completion'
       : (result.errorMessage ?? 'Provider returned an error');
   throw new CodesignError(message, ERROR_CODES.PROVIDER_ERROR);
-}
-
-function validateCodexImageInputs(opts: GenerateOptions): void {
-  if (opts.wire !== 'openai-codex-responses' || (opts.userImages?.length ?? 0) === 0) return;
-  const totalImageBytes = (opts.userImages ?? []).reduce((sum, image) => {
-    // Count trailing = padding to avoid regex ReDoS warning from CodeQL
-    // base64: 4 chars -> 3 bytes, each = padding represents 1 byte less
-    let len = image.data.length;
-    if (len >= 2 && image.data[len - 1] === '=' && image.data[len - 2] === '=') {
-      len -= 2;
-    } else if (len >= 1 && image.data[len - 1] === '=') {
-      len -= 1;
-    }
-    return sum + Math.floor((len * 3) / 4);
-  }, 0);
-  if (totalImageBytes > MAX_TOTAL_CODEX_IMAGE_BYTES) {
-    throw new CodesignError(
-      'Attached images are too large in total for ChatGPT Codex. Reduce image count or image size.',
-      ERROR_CODES.ATTACHMENT_TOO_LARGE,
-    );
-  }
 }
 
 function toPiContext(messages: ChatMessage[], model: PiModel, opts: GenerateOptions): PiContext {
@@ -584,21 +553,6 @@ function toPiContext(messages: ChatMessage[], model: PiModel, opts: GenerateOpti
   };
 }
 
-/**
- * Detect API provider from a pasted key prefix. Used by the onboarding flow
- * to spare the user from picking a provider manually.
- */
-export function detectProviderFromKey(key: string): ModelRef['provider'] | null {
-  const trimmed = key.trim();
-  if (trimmed.startsWith('sk-ant-')) return 'anthropic';
-  if (trimmed.startsWith('sk-or-')) return 'openrouter';
-  if (trimmed.startsWith('sk-')) return 'openai';
-  if (trimmed.startsWith('AIza')) return 'google';
-  if (trimmed.startsWith('xai-')) return 'xai';
-  if (trimmed.startsWith('gsk_')) return 'groq';
-  return null;
-}
-
 export {
   claudeCodeIdentityHeaders,
   isOfficialAnthropicBaseUrl,
@@ -634,8 +588,6 @@ export {
 } from './retry';
 
 export { filterActive } from './skill-injector';
-export type { ValidateResult } from './validate';
-export { pingProvider } from './validate';
 
 // Tier 2 surface (not yet implemented):
 //   structuredComplete<T>(model, schema, messages, opts): Promise<T>

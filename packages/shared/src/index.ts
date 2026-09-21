@@ -295,13 +295,12 @@ export type { CanonicalWire } from './base-url';
 export {
   canonicalBaseUrl,
   ensureVersionedBase,
-  modelsEndpointUrl,
   stripInferenceEndpointSuffix,
 } from './base-url';
 export { CodesignError } from './codesign-error';
 export type {
   Config,
-  ConfigV3,
+  ConfigV4,
   ImageGenerationCredentialMode,
   ImageGenerationOutputFormat,
   ImageGenerationProvider,
@@ -311,18 +310,12 @@ export type {
   OnboardingState,
   ProviderCapabilities,
   ProviderEntry,
-  ProviderModelDiscoveryMode,
-  ProviderShortlist,
   ReasoningLevel,
-  SupportedOnboardingProvider,
   WireApi,
 } from './config';
 export {
-  BUILTIN_PROVIDERS,
-  CHATGPT_CODEX_PROVIDER_ID,
   ConfigSchema,
-  ConfigV3Schema,
-  defaultProviderCapabilities,
+  ConfigV4Schema,
   detectWireFromBaseUrl,
   hydrateConfig,
   IMAGE_GENERATION_SCHEMA_VERSION,
@@ -332,32 +325,21 @@ export {
   ImageGenerationQualitySchema,
   ImageGenerationSettingsSchema,
   ImageGenerationSizeSchema,
-  isSupportedOnboardingProvider,
-  migrateLegacyToV3,
-  PROVIDER_SHORTLIST,
+  migrateLegacyToV4,
+  migrateV3ToV4,
   ProviderCapabilitiesSchema,
   ProviderEntrySchema,
-  ProviderModelDiscoveryModeSchema,
   parseConfigFlexible,
   ReasoningLevelSchema,
   resolveProviderCapabilities,
   SecretRef,
   STORED_DESIGN_SYSTEM_SCHEMA_VERSION,
   StoredDesignSystem,
-  SUPPORTED_ONBOARDING_PROVIDERS,
-  toPersistedV3,
+  toPersistedV4,
   WireApiSchema,
 } from './config';
 export type { DesignToken } from './design-token';
 export { DesignTokenSet, DesignTokenV1 } from './design-token';
-export type {
-  ClaudeCodeDetectionMeta,
-  ClaudeCodeUserType,
-  CodexDetectionMeta,
-  ExternalConfigsDetection,
-  GeminiDetectionMeta,
-  OpencodeDetectionMeta,
-} from './detection';
 export type {
   DiagnoseContext,
   DiagnosticCategory,

@@ -6,7 +6,6 @@ import type {
   ChatAppendInput,
   ChatMessage,
   ChatMessageRow,
-  ClaudeCodeUserType,
   CommentApplyResultV1,
   CommentContentExpectations,
   CommentCreateInput,
@@ -14,7 +13,6 @@ import type {
   CommentStatus,
   Design,
   DesignSnapshot,
-  ExternalConfigsDetection,
   GeneratePayloadV1,
   ListEventsInput,
   ListEventsResult,
@@ -28,40 +26,23 @@ import type {
   ResourceStateV1,
   SelectedElement,
   SnapshotCreateInput,
-  SupportedOnboardingProvider,
   WireApi,
 } from '@open-codesign/shared';
 import { contextBridge, ipcRenderer } from 'electron';
-import type { CodexOAuthStatus } from '../main/codex-oauth-ipc';
 import type {
   ConnectionTestError,
   ConnectionTestResult,
-  ModelsListResponse,
   TestEndpointResponse,
 } from '../main/connection-ipc';
 import type { ImageGenerationSettingsView } from '../main/image-generation-settings';
 
 export type {
-  ClaudeCodeUserType,
-  CodexOAuthStatus,
   ConnectionTestError,
   ConnectionTestResult,
-  ExternalConfigsDetection,
   ImageGenerationSettingsView,
-  ModelsListResponse,
   PreviewMode,
   TestEndpointResponse,
 };
-
-export interface ValidateKeyResult {
-  ok: true;
-  modelCount: number;
-}
-export interface ValidateKeyError {
-  ok: false;
-  code: '401' | '402' | '429' | 'network' | 'parse';
-  message: string;
-}
 
 export type ExportFormat = 'html' | 'pdf' | 'pptx' | 'zip' | 'markdown';
 export type WorkspaceFileKind =
@@ -196,27 +177,19 @@ export interface ProviderRow {
   baseUrl: string | null;
   isActive: boolean;
   label: string;
-  /** Stored entry name — differs from `label` for codex-imported rows
-   *  where `label` is the localized alias "Codex (imported)". */
+  /** Stored entry name (= `label` for all v4 providers). */
   name: string;
-  builtin: boolean;
   wire: WireApi;
-  defaultModel: string;
+  /** Manually configured model IDs — the model switcher's source of truth. */
+  models: string[];
   hasKey: boolean;
-  requiresApiKey?: boolean;
+  /** True when the entry declares keyless support and no secret is stored. */
+  keyless: boolean;
   reasoningLevel?: ReasoningLevel;
-  /** Per-provider opt-in to skip TLS verification on outbound HTTPS.
-   *  Built-in providers force-ignore this flag at runtime; only surfaced
-   *  for custom/imported providers. See #229. */
+  /** Per-provider opt-in to skip TLS verification on outbound HTTPS. See #229. */
   tlsRejectUnauthorized?: boolean;
   error?: 'decryption_failed' | string;
 }
-
-// `ClaudeCodeUserType` and `ExternalConfigsDetection` now live in
-// `packages/shared/src/detection.ts` so main and preload stay in lockstep —
-// see that file for the drift-risk background. The inline definitions that
-// used to live here are gone; re-exports above keep downstream imports
-// from breaking.
 
 export interface AppPaths {
   config: string;
@@ -402,8 +375,6 @@ export interface AskRequest {
 }
 
 const api = {
-  detectProvider: (key: string) =>
-    ipcRenderer.invoke('codesign:detect-provider', key) as Promise<string | null>,
   doneVerify: (artifact: string) =>
     ipcRenderer.invoke('done:verify:v1', { artifact }) as Promise<{
       errors: Array<{ message: string; source?: string; lineno?: number }>;
@@ -471,30 +442,9 @@ const api = {
   },
   onboarding: {
     getState: () => ipcRenderer.invoke('onboarding:get-state') as Promise<OnboardingState>,
-    validateKey: (input: {
-      provider: SupportedOnboardingProvider;
-      apiKey: string;
-      baseUrl?: string;
-    }) =>
-      ipcRenderer.invoke('onboarding:validate-key', input) as Promise<
-        ValidateKeyResult | ValidateKeyError
-      >,
-    saveKey: (input: {
-      provider: SupportedOnboardingProvider;
-      apiKey: string;
-      modelPrimary: string;
-      baseUrl?: string;
-    }) => ipcRenderer.invoke('onboarding:save-key', input) as Promise<OnboardingState>,
-    skip: () => ipcRenderer.invoke('onboarding:skip') as Promise<OnboardingState>,
   },
   settings: {
     listProviders: () => ipcRenderer.invoke('settings:v1:list-providers') as Promise<ProviderRow[]>,
-    addProvider: (input: {
-      provider: SupportedOnboardingProvider;
-      apiKey: string;
-      modelPrimary: string;
-      baseUrl?: string;
-    }) => ipcRenderer.invoke('settings:v1:add-provider', input) as Promise<ProviderRow[]>,
     deleteProvider: (provider: string) =>
       ipcRenderer.invoke('settings:v1:delete-provider', provider) as Promise<ProviderRow[]>,
     setActiveProvider: (input: { provider: string; modelPrimary: string }) =>
@@ -508,35 +458,16 @@ const api = {
       ipcRenderer.invoke('codesign:v1:open-templates-folder') as Promise<void>,
     resetOnboarding: () => ipcRenderer.invoke('settings:v1:reset-onboarding') as Promise<void>,
     toggleDevtools: () => ipcRenderer.invoke('settings:v1:toggle-devtools') as Promise<void>,
-    validateKey: (input: {
-      provider: SupportedOnboardingProvider;
-      apiKey: string;
-      baseUrl?: string;
-    }) =>
-      ipcRenderer.invoke('onboarding:validate-key', input) as Promise<
-        ValidateKeyResult | ValidateKeyError
-      >,
   },
   config: {
-    setProviderAndModels: (input: {
-      provider: SupportedOnboardingProvider;
-      apiKey: string;
-      modelPrimary: string;
-      baseUrl?: string;
-      setAsActive: boolean;
-    }) =>
-      ipcRenderer.invoke('config:v1:set-provider-and-models', {
-        schemaVersion: 1,
-        ...input,
-      }) as Promise<OnboardingState>,
     addProvider: (input: {
       id: string;
       name: string;
       wire: WireApi;
       baseUrl: string;
       apiKey: string;
-      requiresApiKey?: boolean;
-      defaultModel: string;
+      keyless?: boolean;
+      models: string[];
       httpHeaders?: Record<string, string>;
       queryParams?: Record<string, string>;
       envKey?: string;
@@ -545,10 +476,10 @@ const api = {
     }) => ipcRenderer.invoke('config:v1:add-provider', input) as Promise<OnboardingState>,
     updateProvider: (input: {
       id: string;
-      requiresApiKey?: boolean;
+      keyless?: boolean;
       name?: string;
       baseUrl?: string;
-      defaultModel?: string;
+      models?: string[];
       wire?: WireApi;
       httpHeaders?: Record<string, string>;
       queryParams?: Record<string, string>;
@@ -572,26 +503,13 @@ const api = {
     testEndpoint: (input: {
       wire: WireApi;
       baseUrl: string;
+      model: string;
       apiKey: string;
-      requiresApiKey?: boolean;
+      keyless?: boolean;
       httpHeaders?: Record<string, string>;
       allowPrivateNetwork?: boolean;
       tlsRejectUnauthorized?: boolean;
     }) => ipcRenderer.invoke('config:v1:test-endpoint', input) as Promise<TestEndpointResponse>,
-    listEndpointModels: (input: { wire: WireApi; baseUrl: string; apiKey: string }) =>
-      ipcRenderer.invoke('config:v1:list-endpoint-models', input) as Promise<
-        { ok: true; models: string[] } | { ok: false; error: string }
-      >,
-    detectExternalConfigs: () =>
-      ipcRenderer.invoke('config:v1:detect-external-configs') as Promise<ExternalConfigsDetection>,
-    importCodexConfig: () =>
-      ipcRenderer.invoke('config:v1:import-codex-config') as Promise<OnboardingState>,
-    importClaudeCodeConfig: () =>
-      ipcRenderer.invoke('config:v1:import-claude-code-config') as Promise<OnboardingState>,
-    importGeminiConfig: () =>
-      ipcRenderer.invoke('config:v1:import-gemini-config') as Promise<OnboardingState>,
-    importOpencodeConfig: () =>
-      ipcRenderer.invoke('config:v1:import-opencode-config') as Promise<OnboardingState>,
   },
   preferences: {
     get: () => ipcRenderer.invoke('preferences:v1:get') as Promise<Preferences>,
@@ -617,36 +535,10 @@ const api = {
         patch,
       ) as Promise<ImageGenerationSettingsView>,
   },
-  codexOAuth: {
-    status: () => ipcRenderer.invoke('codex-oauth:v1:status') as Promise<CodexOAuthStatus>,
-    login: () => ipcRenderer.invoke('codex-oauth:v1:login') as Promise<CodexOAuthStatus>,
-    cancelLogin: () => ipcRenderer.invoke('codex-oauth:v1:cancel-login') as Promise<boolean>,
-    logout: () => ipcRenderer.invoke('codex-oauth:v1:logout') as Promise<CodexOAuthStatus>,
-  },
   connection: {
-    test: (input: { provider: SupportedOnboardingProvider; apiKey: string; baseUrl: string }) =>
-      ipcRenderer.invoke('connection:v1:test', input) as Promise<
-        ConnectionTestResult | ConnectionTestError
-      >,
-    testActive: () =>
-      ipcRenderer.invoke('connection:v1:test-active') as Promise<
-        ConnectionTestResult | ConnectionTestError
-      >,
     testProvider: (providerId: string) =>
       ipcRenderer.invoke('connection:v1:test-provider', providerId) as Promise<
         ConnectionTestResult | ConnectionTestError
-      >,
-  },
-  models: {
-    list: (input: { provider: SupportedOnboardingProvider; apiKey: string; baseUrl: string }) =>
-      ipcRenderer.invoke('models:v1:list', input) as Promise<ModelsListResponse>,
-    listForProvider: (providerId: string) =>
-      ipcRenderer.invoke('models:v1:list-for-provider', providerId) as Promise<ModelsListResponse>,
-  },
-  ollama: {
-    probe: (baseUrl?: string) =>
-      ipcRenderer.invoke('ollama:v1:probe', baseUrl) as Promise<
-        { ok: true; models: string[] } | { ok: false; code: string; message: string }
       >,
   },
   files: {

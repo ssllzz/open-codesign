@@ -18,7 +18,7 @@ import {
   routeRunPreferences,
   updateDesignSessionBrief,
 } from '@open-codesign/core';
-import { complete, detectProviderFromKey, generateImage } from '@open-codesign/providers';
+import { complete, generateImage } from '@open-codesign/providers';
 import {
   ActiveRunMessageInputV1,
   ApplyCommentPayload,
@@ -33,7 +33,6 @@ import { computeFingerprint } from '@open-codesign/shared/fingerprint';
 import type { BrowserWindow as ElectronBrowserWindow } from 'electron';
 import type { AgentStreamEvent } from '../../preload/index';
 import { requestAsk } from '../ask-ipc';
-import { CHATGPT_CODEX_PROVIDER_ID, getCodexTokenStore } from '../codex-oauth-ipc';
 import { makeRuntimeVerifier } from '../done-verify';
 import { app, ipcMain } from '../electron-runtime';
 import {
@@ -62,7 +61,7 @@ import { preparePromptContext } from '../prompt-context';
 import { createProviderContextStore } from '../provider-context';
 import { resolveActiveModel } from '../provider-settings';
 import { makeUiKitRenderer } from '../render-ui-kit';
-import { resolveActiveApiKey, resolveCredentialForProvider } from '../resolve-api-key';
+import { resolveCredentialForProvider } from '../resolve-api-key';
 import { withRun } from '../runContext';
 import {
   appendSessionActiveMessage,
@@ -94,13 +93,12 @@ export function contextWindowForContextPack(model: unknown): number {
 
 /**
  * Whether outbound pi-ai requests for the given provider should bypass TLS
- * certificate verification. True only for non-built-in providers whose
- * persisted entry opts in via `tlsRejectUnauthorized: true`. Built-in
- * providers force-ignore the flag (security floor — see issue #229).
+ * certificate verification. True only when the persisted entry opts in via
+ * `tlsRejectUnauthorized: true` (corporate gateways with private-CA certs).
  */
 function resolveTlsBypassFor(cfg: Config, providerId: string): boolean {
   const entry = cfg.providers?.[providerId];
-  return entry !== undefined && entry.builtin !== true && entry.tlsRejectUnauthorized === true;
+  return entry?.tlsRejectUnauthorized === true;
 }
 
 export function shouldRunUserMemoryCandidateCapture(prefs: {
@@ -271,16 +269,8 @@ function normalizeGenerationFailure(opts: {
   };
 }
 
-function resolveActiveApiKeyFromState(providerId: string): Promise<string> {
-  return resolveActiveApiKey(providerId, {
-    getCodexAccessToken: () => getCodexTokenStore().getValidAccessToken(),
-    getApiKeyForProvider,
-  });
-}
-
 function resolveApiKeyForActive(providerId: string, allowKeyless: boolean): Promise<string> {
   return resolveCredentialForProvider(providerId, allowKeyless, {
-    getCodexAccessToken: () => getCodexTokenStore().getValidAccessToken(),
     getApiKeyForProvider,
     hasApiKeyForProvider,
   });
@@ -297,7 +287,7 @@ type DesignBriefConversationMessages = Parameters<
 
 /**
  * Registers the agent-loop IPC handlers (generate / apply-comment / title /
- * cancel / detect-provider / done:verify). Returns a teardown closure that
+ * cancel / done:verify). Returns a teardown closure that
  * aborts every in-flight generation — call from the app `before-quit` hook.
  */
 export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDeps): () => void {
@@ -804,13 +794,6 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
       logIpc,
     );
 
-  ipcMain.handle('codesign:detect-provider', (_e, key: unknown) => {
-    if (typeof key !== 'string') {
-      throw new CodesignError('detect-provider expects a string key', 'IPC_BAD_INPUT');
-    }
-    return detectProviderFromKey(key);
-  });
-
   // Standalone runtime-verify IPC. Renderer / debug callers can invoke this
   // directly to dry-run an artifact without going through the agent loop.
   const sharedRuntimeVerifier = makeRuntimeVerifier();
@@ -978,7 +961,6 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
               inFlightByWorkspace,
             );
             clearTimeoutGuard = await armTimeout(id, controller);
-            const isCodex = active.model.provider === CHATGPT_CODEX_PROVIDER_ID;
             let capturedMessages: DesignBriefConversationMessages | null = null;
             let aggressivePruneDetected = false;
             const rawChatRows = chatRowsForDesign(designId);
@@ -1064,9 +1046,6 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
                   history: contextPack.history,
                   model: active.model,
                   apiKey,
-                  ...(isCodex
-                    ? { getApiKey: () => resolveActiveApiKeyFromState(active.model.provider) }
-                    : {}),
                   attachments: promptContext.attachments,
                   referenceUrl: promptContext.referenceUrl,
                   designSystem: promptContext.designSystem ?? null,
@@ -1414,7 +1393,6 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
               inFlightByWorkspace,
             );
             clearTimeoutGuard = await armTimeout(id, controller);
-            const isCodex = active.model.provider === CHATGPT_CODEX_PROVIDER_ID;
             const result = await withTlsBypass(tlsBypass, () =>
               runGenerate(
                 {
@@ -1423,9 +1401,6 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
                   history: [],
                   model: active.model,
                   apiKey,
-                  ...(isCodex
-                    ? { getApiKey: () => resolveActiveApiKeyFromState(active.model.provider) }
-                    : {}),
                   attachments: promptContext.attachments,
                   referenceUrl: promptContext.referenceUrl,
                   designSystem: promptContext.designSystem ?? null,

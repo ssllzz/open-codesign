@@ -202,7 +202,6 @@ export function sanitizeOpenAIResponsesPayloadForStoreFalse(payload: unknown): u
 function apiForWire(wire: WireApi | undefined): string {
   if (wire === 'anthropic') return 'anthropic-messages';
   if (wire === 'openai-responses') return 'openai-responses';
-  if (wire === 'openai-codex-responses') return 'openai-codex-responses';
   // openai-chat is the canonical wire for everything else that uses the
   // openai chat-completions wire format (openai, openrouter, deepseek, etc.).
   return 'openai-completions';
@@ -247,7 +246,7 @@ function openAIChatCompatForBaseUrl(
 }
 
 function supportsImageInput(wire: WireApi | undefined, modelId: string): boolean {
-  if (wire === 'anthropic' || wire === 'openai-responses' || wire === 'openai-codex-responses') {
+  if (wire === 'anthropic' || wire === 'openai-responses') {
     return true;
   }
   if (wire === 'openai-chat') {
@@ -297,8 +296,6 @@ function buildPiModel(
   // Defensive: canonicalize stored baseUrl before handing to pi-ai. Rescues
   // legacy configs that persisted pre-normalization (e.g. raw `/v1/chat/completions`
   // pasted in an older build). No-op for configs saved post-fix.
-  // For openai-codex-responses, canonicalBaseUrl only strips trailing slashes
-  // — pi-ai's codex wire appends `/codex/responses` from the bare base itself.
   const canonicalBase = wire ? canonicalBaseUrl(resolvedBaseUrl, wire) : resolvedBaseUrl;
   const effectiveModelId = normalizeGeminiModelId(model.modelId, canonicalBase);
   const out: PiModel = {

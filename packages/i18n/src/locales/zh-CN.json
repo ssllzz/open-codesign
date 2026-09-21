@@ -33,7 +33,7 @@
     "comingSoon": "即将推出",
     "loading": "加载中…",
     "preAlpha": "预览版",
-    "tagline": "自带密钥 · ChatGPT 登录 · 本地优先",
+    "tagline": "自带密钥 · 本地优先",
     "done": "完成。",
     "applied": "已应用。",
     "working": "处理中"
@@ -359,12 +359,11 @@
     },
     "imageGen": {
       "tabTitle": "图像生成",
-      "tabHint": "允许设计 Agent 通过 OpenAI、OpenRouter 或 ChatGPT 订阅调用图像模型，生成 hero、海报或背景位图。凭据仅保存在本机。",
+      "tabHint": "允许设计 Agent 调用图像模型，生成 hero、海报或背景位图。凭据仅保存在本机。",
       "title": "图像生成辅助",
       "hint": "开启后，Agent 在生成设计时可以调用 generate_image_asset 工具。",
       "enabled": "启用图像生成辅助",
       "provider": "服务商",
-      "chatgptSubscription": "ChatGPT 订阅",
       "credentials": "凭据方式",
       "inherit": "沿用模型服务商",
       "customKey": "单独设置 Key",
@@ -377,7 +376,6 @@
       "status": {
         "ready": "可用",
         "needsKey": "缺少 API Key",
-        "needsChatgptLogin": "需要登录 ChatGPT",
         "disabled": "未启用"
       },
       "toast": {
@@ -423,20 +421,6 @@
     },
     "providers": {
       "sectionTitle": "API 服务",
-      "chatgptLogin": {
-        "title": "用 ChatGPT 订阅登录",
-        "description": "直接用你的 ChatGPT Plus / Pro / Team 订阅额度调用 Codex 模型（gpt-5.5 等），无需 API key。",
-        "signIn": "用 ChatGPT 订阅登录",
-        "inProgress": "已打开浏览器，完成授权后自动返回…",
-        "loggedInBadge": "已登录 ChatGPT",
-        "logout": "登出",
-        "confirmLogout": "确定登出 ChatGPT 订阅吗？",
-        "loginFailedTitle": "ChatGPT 登录失败",
-        "logoutFailedTitle": "ChatGPT 登出失败",
-        "statusFailedTitle": "ChatGPT 登录状态读取失败",
-        "unknownError": "未知错误",
-        "unsupportedCountryRegion": "当前账号、国家、地区或区域暂不支持 ChatGPT 订阅登录。"
-      },
       "addProvider": "添加服务",
       "addCustom": "添加自定义",
       "empty": "还没有配置任何服务，添加一个即可开始生成。",
@@ -472,18 +456,15 @@
         "apiKeyEditPlaceholder": "留空则保留 {{mask}}",
         "keylessLabel": "无需 API Key",
         "keylessDescription": "仅适用于允许不带 API Key 访问的接入地址。切换到此模式后，保存时将移除已存储的密钥。",
-        "defaultModel": "默认模型",
-        "compatibilityHintTitle": "\u517c\u5bb9\u6027\u63d0\u793a",
-        "compatibilityHintBody": "\u90e8\u5206 coding plan\uff0c\u534f\u8bae\u8f6c\u6362\u670d\u52a1\u6216 OpenAI \u517c\u5bb9\u7f51\u5173\u53ea\u5141\u8bb8\u7279\u5b9a\u5ba2\u6237\u7aef\uff08\u5982 Claude Code\uff0copenclaw\uff0cHermes\uff09\u8bbf\u95ee\u3002\u5373\u4f7f API \u770b\u8d77\u6765\u517c\u5bb9\uff0cOpen CoDesign \u4e5f\u53ef\u80fd\u56e0\u4e3a\u5e94\u7528\u767d\u540d\u5355\u800c\u65e0\u6cd5\u4f7f\u7528\u3002",
-        "switchToManual": "手动输入",
-        "switchToDropdown": "从列表选择",
-        "discoveringModels": "正在发现模型…",
-        "discoveredModels": "发现 {{count}} 个模型",
-        "discoveryFailed": "无法自动发现模型",
+        "compatibilityHintTitle": "兼容性提示",
+        "compatibilityHintBody": "部分 coding plan，协议转换服务或 OpenAI 兼容网关只允许特定客户端（如 Claude Code，openclaw，Hermes）访问。即使 API 看起来兼容，Open CoDesign 也可能因为应用白名单而无法使用。",
         "test": "测试连接",
-        "testOk": "正常 — 共 {{count}} 个模型",
+        "testOk": "连接成功 — 模型已回复",
         "save": "保存并继续",
-        "saveEdit": "保存修改"
+        "saveEdit": "保存修改",
+        "models": "模型 IDs",
+        "modelsHint": "手动填写模型 ID（逗号或换行分隔）。模型 ID 以服务商文档为准。",
+        "allowPrivateNetwork": "允许测试本地或私有网络地址的 Provider URL"
       },
       "tlsRejectUnauthorized": {
         "label": "禁用 TLS 校验（不安全 — 仅用于内网端点）",
@@ -494,55 +475,6 @@
         "confirmCancel": "取消",
         "badge": "TLS 校验已关",
         "badgeTooltip": "已为该服务商关闭 TLS 证书校验。用于连接使用自签名或私有 CA 证书的内网端点；会扩大攻击面，仅建议在可信网络中启用。"
-      },
-      "import": {
-        "action": "导入",
-        "dismiss": "忽略",
-        "codexFound": "发现 Codex 配置 — 导入 {{count}} 个服务？",
-        "claudeCodeOAuthTitle": "检测到 Claude Code 订阅用户",
-        "claudeCodeOAuthBody": "Pro/Max 订阅只能通过 Claude Code 客户端本身使用，第三方 app 无法共用订阅额度。去 Anthropic 控制台用同一账号生成一个 API key（按 token 计费），就能在这里用 Claude 了。",
-        "claudeCodeOAuthCtaConsole": "去 Anthropic 控制台生成 API key ↗",
-        "claudeCodeHasKeyBody": "在 {{source}} 里找到 {{baseUrl}} 对应的 key — 点导入即可用。",
-        "claudeCodeHasKeySourceSettings": "~/.claude/settings.json",
-        "claudeCodeHasKeySourceEnv": "shell 环境变量",
-        "claudeCodeLocalProxyBody": "看起来你在 {{baseUrl}} 跑了一个本地代理。这种配置通常用于把 OAuth 订阅额度转成标准 API（例如 Claude Code Proxy 一类工具）。",
-        "claudeCodeLocalProxyAction": "粘贴 key 使用代理",
-        "claudeCodeRemoteGatewayBody": "Claude Code 配置里指向 {{baseUrl}}，但没带 API key。可以先导入网关，再到 Settings 填 key。",
-        "claudeCodeRemoteGatewayAction": "粘贴 key 使用网关",
-        "oauthErrorToast": "Claude Code 订阅无法在第三方 app 共用。去 Anthropic 控制台生成一个 API key 即可在这里用。",
-        "oauthErrorToastCta": "获取 API key ↗",
-        "codexDone": "已导入 Codex 服务",
-        "geminiFound": "检测到 Gemini CLI key —— 要导入吗？",
-        "geminiNoKey": "发现 Gemini CLI 配置，但 ~/.gemini/.env 和 ~/.env 里都没有 API key。请手动粘贴 key 以使用 Gemini。",
-        "geminiBlocked": "暂不支持 Google Vertex AI — 请粘贴 Gemini Developer API key（AIzaSy… 开头）在这里使用 Gemini。",
-        "geminiDone": "已导入 Gemini 服务",
-        "opencodeBlocked": "发现 OpenCode 配置但没有可导入内容。查看上方 warning，修复 auth.json 后重试。",
-        "opencodeFound": "发现 OpenCode 配置 — 导入 {{count}} 个服务（{{providers}}）？",
-        "opencodeDone": "已导入 OpenCode 服务",
-        "claudeCodeImportedActivated": "已导入 Claude Code 并设为当前模型服务",
-        "claudeCodeOpenSettings": "打开 Settings",
-        "claudeCodeIHaveKey": "我已经有 API key，去粘贴",
-        "claudeCodeShellEnvHint": "或：在 shell 里 export ANTHROPIC_API_KEY，然后从 Terminal 启动 app — 我们会自动识别。",
-        "claudeCodeParseErrorTitle": "Claude Code 配置解析失败",
-        "claudeCodeParseErrorBody": "~/.claude/settings.json 无法解析：{{reason}}。",
-        "claudeCodeParseErrorReasonNotObject": "最外层不是 JSON 对象",
-        "claudeCodeWarningsMore": "还有 {{count}} 条",
-        "claudeCodeParseErrorCopyPath": "复制文件路径",
-        "claudeCodeParseErrorPathCopied": "路径已复制到剪贴板",
-        "claudeCodeAnthropicPresetName": "Anthropic",
-        "claudeCodeLocalProxyPresetName": "Claude Code 代理（本地）",
-        "claudeCodeRemoteGatewayPresetName": "Claude Code 网关",
-        "failed": "导入失败",
-        "codexMenu": "从 Codex 导入",
-        "codexMenuDesc": "读取 ~/.codex/config.toml",
-        "claudeCodeMenu": "从 Claude Code 导入",
-        "claudeCodeMenuDesc": "读取已登录的 Claude Code 会话",
-        "ollamaMenu": "Ollama（本地）",
-        "ollamaMenuDesc": "添加 localhost:11434 本地模型服务",
-        "ollamaDone": "已添加 Ollama 服务",
-        "customMenu": "自定义服务",
-        "customMenuDesc": "手动填写 API key 和 URL",
-        "alreadyImported": "已导入"
       },
       "modal": {
         "title": "添加服务",
@@ -575,18 +507,6 @@
         "reasoningSaveFailed": "保存推理深度失败",
         "connectionOk": "连接正常",
         "connectionFailed": "连接失败"
-      },
-      "cliProxyApi": {
-        "presetName": "CLIProxyAPI",
-        "presetDescription": "本地反代，将 Claude/Codex/Gemini 的订阅账号包装成统一 API",
-        "apiKeyOptional": "仅当你在 CPA config.yaml 里配置了 api-keys 才需要填",
-        "thinkingHint": "提示：在 model 名后加 `(high)` / `(xhigh)` / `(8192)` 可控制思考力度"
-      },
-      "cpaDetection": {
-        "title": "检测到本机运行的 CLIProxyAPI",
-        "body": "一键导入即可使用你已登录的 Claude / Codex / Gemini 订阅账号。",
-        "importAction": "导入",
-        "dismissAction": "忽略"
       },
       "reasoning": {
         "label": "推理深度",
@@ -694,103 +614,6 @@
     "bannerAvailable": "{{appName}} {{version}} 可用。",
     "bannerViewRelease": "查看版本",
     "bannerDismissAria": "关闭更新提示"
-  },
-  "onboarding": {
-    "stepperLabel": "第 {{current}} 步，共 {{total}} 步",
-    "welcome": {
-      "title": "选择你的设计模型。",
-      "subtitle": "选一种方式来驱动你的设计。之后可以在设置里随时更改。",
-      "tryFree": "免费试用",
-      "tryFreeSubtitle": "使用 OpenRouter 免费额度 — 粘贴一个 OpenRouter Key，然后选 openrouter/free 或输入任意模型 ID。",
-      "useKey": "使用我的 API Key",
-      "useKeySubtitle": "支持 Anthropic、OpenAI 或 OpenRouter，自动识别 Key 前缀。",
-      "useOllama": "使用本地模型（Ollama）",
-      "useOllamaSubtitle": "完全本地运行，零 API 费用。需要已安装并启动 Ollama。",
-      "useOllamaDetected": "已检测到 Ollama — 本地共 {{count}} 个模型可用。",
-      "useOllamaNotRunning": "未在 localhost:11434 检测到 Ollama，请先安装或启动后重试。",
-      "useOllamaProbing": "正在检测本地 Ollama 实例…",
-      "useOllamaRetry": "重新检测",
-      "useOllamaInstall": "安装 Ollama ↗",
-      "whereToGetKey": "在哪里获取 Key"
-    },
-    "paste": {
-      "title": "粘贴你的 API Key",
-      "description": "自动识别提供商。点击\"测试连通\"验证 Key 与端点后再继续。你的 Key 仅保存在本机 ~/.config/open-codesign/config.toml（文件权限 0600）。",
-      "placeholder": "sk-…",
-      "recognized": "已识别提供商：{{provider}}",
-      "connected_one": "已连接 {{count}} 个模型",
-      "connected_other": "已连接 {{count}} 个模型",
-      "howToGet": "怎么获取 API Key？",
-      "getKey": "获取 Key",
-      "statusIdle": "在上方粘贴 Key — 系统会根据前缀自动识别提供商。",
-      "statusDetecting": "正在识别提供商...",
-      "statusValidating": "已识别：{{provider}} — 验证中...",
-      "statusDetected": "已识别：{{provider}} — 点击\"测试连通\"验证",
-      "statusOk": "已识别：{{provider}} — 连接成功（{{count}} 个模型）",
-      "errors": {
-        "401": "Key 被拒绝了。去提供商后台核对一下。",
-        "402": "账户余额不足，充值后重试。",
-        "429": "请求被限流，稍等片刻再试。",
-        "network": "无法连接到 Base URL，检查域名 / 端口 / 网络。",
-        "unsupported": "无法识别的 Key 前缀。支持：sk-ant-（Anthropic）、sk-（OpenAI）、sk-or-（OpenRouter）。",
-        "notSupportedProvider": "{{provider}} 不在首次启动的快捷 provider 列表中。请使用 Anthropic、OpenAI、OpenRouter、Ollama、ChatGPT 订阅登录，或在设置中添加自定义 provider。",
-        "rendererDisconnected": "渲染进程未连接到主进程。",
-        "detectIpc": "提供商识别失败（无法连接主进程）：{{message}}。请重启应用后重试。",
-        "detectNetwork": "提供商识别失败（网络错误）：{{message}}。请检查网络后重试。"
-      },
-      "advanced": {
-        "toggle": "高级 — 自定义 Base URL（代理 / 中转）",
-        "title": "高级 — 自定义 Base URL",
-        "description": "覆盖提供商的默认端点。适用于中转服务和自托管代理。留空则使用官方端点。"
-      },
-      "preset": {
-        "label": "预设",
-        "placeholder": "-- 选择一个预设 --",
-        "hint": "不知道选哪个？官方端点选 OpenAI Official，用中转代理选对应名字。",
-        "custom": "自定义"
-      },
-      "apiKey": {
-        "label": "API Key"
-      },
-      "baseUrl": {
-        "label": "Base URL"
-      },
-      "connectionTest": {
-        "button": "测试连通",
-        "testing": "测试中...",
-        "ok": "连接成功",
-        "okVerified": "连接成功 — Key 与端点已验证",
-        "idleHint": "继续之前请点击\"测试连通\"验证 Key 与连接。",
-        "runFirst": "请先点击\"测试连通\"验证连接",
-        "errors": {
-          "401": "API key 错误或权限不足。",
-          "404": "Base URL 路径错误。试试加 /v1 后缀（如 https://your-host/v1）。",
-          "ECONNREFUSED": "无法连接到 Base URL，检查域名 / 端口 / 网络。",
-          "NETWORK": "网络错误，检查你的网络连接。",
-          "PARSE": "响应格式异常。请查看日志 ~/Library/Logs/open-codesign/main.log",
-          "IPC_BAD_INPUT": "传给连接测试的参数不合法，请检查提供商 / API Key / Base URL。"
-        }
-      },
-      "back": "返回",
-      "continue": "继续"
-    },
-    "choose": {
-      "title": "选择默认模型",
-      "description": "从推荐列表选一个，或直接输入提供商的模型 ID。之后可以按设计切换。",
-      "primary": "主力设计模型",
-      "fast": "快速补全模型",
-      "primaryHint": "用于完整设计生成。",
-      "fastHint": "用于快速编辑和局部调整。",
-      "primaryHintFree": "免费路径从 openrouter/free 开始，你也可以输入任意 OpenRouter 模型 ID。",
-      "fastHintFree": "保留 openrouter/free 以控制成本，或换成更快的自选模型。",
-      "customBaseUrl": "自定义 Base URL：{{url}}",
-      "costNote": "预计费用因提供商、模型和提示词长度而异。",
-      "costNoteFree": "OpenRouter 免费路由随时可能变动，如果免费路由不可用，请在此输入其他模型 ID。",
-      "estimatedCost": "预计费用：{{amount}}",
-      "back": "返回",
-      "saving": "保存中...",
-      "finish": "完成设置"
-    }
   },
   "topbar": {
     "modelSwitcher": {
@@ -1121,8 +944,8 @@
     "testAgain": "再次测试",
     "showLog": "查看完整日志",
     "showLogFailed": "无法打开日志文件夹",
-    "gatewayAllowlistHintTitle": "\u8fd9\u4e2a\u7aef\u70b9\u53ef\u80fd\u9650\u5236\u53ef\u63a5\u5165\u7684\u5e94\u7528",
-    "gatewayAllowlistHintBody": "\u90e8\u5206 coding plan \u548c\u534f\u8bae\u8f6c\u6362\u7f51\u5173\u4f1a\u914d\u7f6e\u5e94\u7528\u767d\u540d\u5355\u3002\u5b83\u4eec\u5373\u4f7f\u58f0\u79f0\u63d0\u4f9b OpenAI \u517c\u5bb9 API\uff0c\u4e5f\u53ef\u80fd\u5728\u6ca1\u6709\u663e\u5f0f\u5141\u8bb8 Open CoDesign \u7684\u60c5\u51b5\u4e0b\u62d2\u7edd\u8bf7\u6c42\u3002",
+    "gatewayAllowlistHintTitle": "这个端点可能限制可接入的应用",
+    "gatewayAllowlistHintBody": "部分 coding plan 和协议转换网关会配置应用白名单。它们即使声称提供 OpenAI 兼容 API，也可能在没有显式允许 Open CoDesign 的情况下拒绝请求。",
     "dismiss": "关闭",
     "report": {
       "title": "上报问题",
@@ -1363,9 +1186,6 @@
     "PROVIDER_GATEWAY_INCOMPATIBLE": "网关对 Messages API 返回 “not implemented”。请到设置中把 wire 切换为 openai-chat，或更换支持 Anthropic Messages API 的网关。",
     "PROVIDER_ABORTED": "生成已取消。",
     "PROVIDER_RETRY_EXHAUSTED": "多次重试后 provider 仍然失败，请检查网络后重试。",
-    "CLAUDE_CODE_OAUTH_ONLY": "你的 Claude Code 使用的是 Anthropic 订阅（Pro/Max），第三方应用无法复用订阅额度——请到 console.anthropic.com 生成 API key 后填入。",
-    "CODEX_TOKEN_PARSE_FAILED": "本地 ChatGPT 登录凭证已损坏，请到设置中重新登录。",
-    "CODEX_TOKEN_NOT_LOGGED_IN": "ChatGPT 订阅未登录，请到设置中登录。",
     "INPUT_EMPTY_PROMPT": "prompt 不能为空。",
     "INPUT_EMPTY_COMMENT": "评论内容不能为空。",
     "INPUT_EMPTY_HTML": "此操作需要已有的 HTML 内容。",

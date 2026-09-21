@@ -1,4 +1,5 @@
 import { mkdirSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { BRAND } from '@open-codesign/shared';
@@ -7,7 +8,6 @@ import { autoUpdater } from 'electron-updater';
 import { registerAppMenu } from './app-menu';
 import { registerAskIpc } from './ask-ipc';
 import { showBootDialog, writeBootErrorSync } from './boot-fallback';
-import { migrateStaleCodexEntryIfNeeded, registerCodexOAuthIpc } from './codex-oauth-ipc';
 import { configDir } from './config';
 import { registerConnectionIpc } from './connection-ipc';
 import { registerDiagnosticsIpc } from './diagnostics-ipc';
@@ -253,9 +253,13 @@ if (!IS_VITEST) {
       const templatesSource = resolveBundledTemplatesDir(process.resourcesPath);
       const seeded = await ensureUserTemplates(app.getPath('userData'), templatesSource);
       bootLog.info('templates.ensure', { ...seeded });
-      // One-shot migration for experimental-branch testers whose config.toml
-      // still carries stale codex wire/baseUrl. No-op on fresh installs.
-      await migrateStaleCodexEntryIfNeeded();
+      // Best-effort removal of the OAuth token file left behind by the removed
+      // ChatGPT-Codex sign-in flow. No-op when absent.
+      try {
+        await rm(join(configDir(), 'codex-auth.json'), { force: true });
+      } catch {
+        // unreadable/unwritable config dir — nothing actionable at boot
+      }
       // Best-effort sweep of leftover `<file>.tmp.<pid>` siblings from previous
       // crashes. pid changes across restarts so without this the config dir
       // accumulates 0o600 litter forever.
@@ -300,7 +304,6 @@ if (!IS_VITEST) {
       registerLocaleIpc();
       registerConnectionIpc();
       registerOnboardingIpc();
-      registerCodexOAuthIpc();
       registerPreferencesIpc();
       registerMemoryIpc();
       registerImageGenerationSettingsIpc();

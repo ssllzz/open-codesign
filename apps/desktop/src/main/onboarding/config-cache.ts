@@ -43,9 +43,9 @@ export async function loadConfigOnBoot(): Promise<void> {
 }
 
 /**
- * Overwrite the cached config reference. For use by sibling IPC modules (e.g.
- * `codex-oauth-ipc`) that mutate `config.providers` via their own write path
- * and need `getCachedConfig` / `toState` to reflect the change immediately.
+ * Overwrite the cached config reference. For use by sibling IPC modules that
+ * mutate `config.providers` via their own write path and need
+ * `getCachedConfig` / `toState` to reflect the change immediately.
  * Callers are responsible for having already persisted `next` to disk.
  */
 export function setCachedConfig(next: Config): void {
@@ -89,12 +89,6 @@ export function hasApiKeyForProvider(provider: string): boolean {
     );
   }
   return cfg.secrets[provider as keyof typeof cfg.secrets] !== undefined;
-}
-
-export function getBaseUrlForProvider(provider: string): string | undefined {
-  const cfg = getCachedConfig();
-  if (cfg === null) return undefined;
-  return cfg.providers[provider]?.baseUrl;
 }
 
 export function toState(cfg: Config | null): OnboardingState {
@@ -151,12 +145,13 @@ export async function setDesignSystem(
     );
   }
   const next: Config = hydrateConfig({
-    version: 3,
+    version: 4,
     activeProvider: cfg.activeProvider,
     activeModel: cfg.activeModel,
     secrets: cfg.secrets,
     providers: cfg.providers,
     ...(designSystem !== null ? { designSystem: StoredDesignSystem.parse(designSystem) } : {}),
+    ...(cfg.imageGeneration !== undefined ? { imageGeneration: cfg.imageGeneration } : {}),
   });
   await writeConfig(next);
   setCachedConfig(next);

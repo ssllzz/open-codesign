@@ -1,31 +1,11 @@
 import {
-  BUILTIN_PROVIDERS,
   CodesignError,
   ERROR_CODES,
-  isSupportedOnboardingProvider,
   type ReasoningLevel,
   ReasoningLevelSchema,
-  type SupportedOnboardingProvider,
   type WireApi,
   WireApiSchema,
 } from '@open-codesign/shared';
-
-export interface SaveKeyInput {
-  provider: string;
-  apiKey: string;
-  modelPrimary: string;
-  baseUrl?: string;
-}
-
-export interface ValidateKeyInput {
-  provider: SupportedOnboardingProvider;
-  apiKey: string;
-  baseUrl?: string;
-}
-
-export interface SetProviderAndModelsInput extends SaveKeyInput {
-  setAsActive: boolean;
-}
 
 export interface AddCustomProviderInput {
   id: string;
@@ -33,46 +13,45 @@ export interface AddCustomProviderInput {
   wire: WireApi;
   baseUrl: string;
   apiKey: string;
-  requiresApiKey?: boolean;
-  defaultModel: string;
+  /** Persisted as `capabilities.supportsKeyless`. */
+  keyless?: boolean;
+  /** Manually entered model IDs (≥1). */
+  models: string[];
   httpHeaders?: Record<string, string>;
   queryParams?: Record<string, string>;
   envKey?: string;
-  /** Per-provider TLS verification opt-out (#229). Built-in providers
-   *  force-ignore this flag at runtime. */
+  /** Per-provider TLS verification opt-out (#229). */
   tlsRejectUnauthorized?: boolean;
   setAsActive: boolean;
 }
 
 export interface UpdateProviderInput {
   id: string;
-  requiresApiKey?: boolean;
+  keyless?: boolean;
   name?: string;
   baseUrl?: string;
-  defaultModel?: string;
+  models?: string[];
   httpHeaders?: Record<string, string>;
   queryParams?: Record<string, string>;
   wire?: WireApi;
   reasoningLevel?: ReasoningLevel | null;
   /** When present AND non-empty, re-encrypt and replace the stored secret.
-   *  Empty string means "clear stored secret" for providers that became
-   *  keyless (e.g. switched to local Ollama). `undefined` means "leave alone". */
+   *  Empty string means "clear stored secret" for keyless providers.
+   *  `undefined` means "leave alone". */
   apiKey?: string;
   /** Tri-state: `true`/`false` writes the field; `null` clears it back to
    *  the default (strict TLS); `undefined` leaves the existing value alone. */
   tlsRejectUnauthorized?: boolean | null;
 }
 
-const SAVE_KEY_FIELDS = ['provider', 'apiKey', 'modelPrimary', 'baseUrl'] as const;
-const VALIDATE_KEY_FIELDS = ['provider', 'apiKey', 'baseUrl'] as const;
 const ADD_PROVIDER_FIELDS = [
   'id',
   'name',
   'wire',
   'baseUrl',
   'apiKey',
-  'requiresApiKey',
-  'defaultModel',
+  'keyless',
+  'models',
   'httpHeaders',
   'queryParams',
   'envKey',
@@ -83,13 +62,13 @@ const UPDATE_PROVIDER_FIELDS = [
   'id',
   'name',
   'baseUrl',
-  'defaultModel',
+  'models',
   'httpHeaders',
   'queryParams',
   'wire',
   'reasoningLevel',
   'apiKey',
-  'requiresApiKey',
+  'keyless',
   'tlsRejectUnauthorized',
 ] as const;
 
@@ -143,15 +122,6 @@ function validUrl(value: string, field: string): string {
   }
 }
 
-function validOptionalUrl(value: unknown, field: string): string | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== 'string') {
-    throw new CodesignError(`${field} must be a string`, ERROR_CODES.IPC_BAD_INPUT);
-  }
-  if (value.trim().length === 0) return undefined;
-  return validUrl(value, field);
-}
-
 function validRequiredUrl(value: unknown, field: string): string {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new CodesignError(`${field} must be a non-empty string`, ERROR_CODES.IPC_BAD_INPUT);
@@ -159,110 +129,31 @@ function validRequiredUrl(value: unknown, field: string): string {
   return validUrl(value, field);
 }
 
-export function parseSaveKey(raw: unknown): SaveKeyInput {
-  return parseSaveKeyPayload(raw, SAVE_KEY_FIELDS, 'save-key');
-}
-
-function parseSaveKeyPayload(
-  raw: unknown,
-  allowedFields: readonly string[],
-  context: string,
-): SaveKeyInput {
-  if (typeof raw !== 'object' || raw === null) {
-    throw new CodesignError('save-key expects an object payload', ERROR_CODES.IPC_BAD_INPUT);
-  }
-  const r = raw as Record<string, unknown>;
-  assertKnownFields(r, allowedFields, context);
-  const provider = r['provider'];
-  const apiKey = r['apiKey'];
-  const modelPrimary = r['modelPrimary'];
-  const baseUrl = r['baseUrl'];
-  if (typeof provider !== 'string' || provider.trim().length === 0) {
+function parseModelsList(value: unknown, field: string): string[] {
+  if (!Array.isArray(value) || value.length === 0) {
     throw new CodesignError(
-      `Provider "${String(provider)}" is invalid.`,
+      `${field} must be a non-empty array of model IDs`,
       ERROR_CODES.IPC_BAD_INPUT,
     );
   }
-  const providerId = provider.trim();
-  if (!isSupportedOnboardingProvider(providerId)) {
+  const out: string[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string' || item.trim().length === 0) {
+      throw new CodesignError(
+        `${field} entries must be non-empty strings`,
+        ERROR_CODES.IPC_BAD_INPUT,
+      );
+    }
+    const trimmed = item.trim();
+    if (!out.includes(trimmed)) out.push(trimmed);
+  }
+  if (out.length === 0) {
     throw new CodesignError(
-      `Provider "${providerId}" is not supported. Use config:v1:add-provider for custom providers.`,
-      ERROR_CODES.PROVIDER_NOT_SUPPORTED,
+      `${field} must contain at least one model ID`,
+      ERROR_CODES.IPC_BAD_INPUT,
     );
   }
-  const isKeylessBuiltin = BUILTIN_PROVIDERS[providerId].requiresApiKey === false;
-  if (typeof apiKey !== 'string' || (apiKey.trim().length === 0 && !isKeylessBuiltin)) {
-    throw new CodesignError('apiKey must be a non-empty string', ERROR_CODES.IPC_BAD_INPUT);
-  }
-  if (typeof modelPrimary !== 'string' || modelPrimary.trim().length === 0) {
-    throw new CodesignError('modelPrimary must be a non-empty string', ERROR_CODES.IPC_BAD_INPUT);
-  }
-  const out: SaveKeyInput = {
-    provider: providerId,
-    apiKey: apiKey.trim(),
-    modelPrimary: modelPrimary.trim(),
-  };
-  const parsedBaseUrl = validOptionalUrl(baseUrl, 'baseUrl');
-  if (parsedBaseUrl !== undefined) out.baseUrl = parsedBaseUrl;
   return out;
-}
-
-export function parseValidateKey(raw: unknown): ValidateKeyInput {
-  if (typeof raw !== 'object' || raw === null) {
-    throw new CodesignError('validate-key expects an object payload', ERROR_CODES.IPC_BAD_INPUT);
-  }
-  const r = raw as Record<string, unknown>;
-  assertKnownFields(r, VALIDATE_KEY_FIELDS, 'validate-key');
-  const provider = r['provider'];
-  const apiKey = r['apiKey'];
-  const baseUrl = r['baseUrl'];
-  if (typeof provider !== 'string' || provider.trim().length === 0) {
-    throw new CodesignError('provider must be a non-empty string', ERROR_CODES.IPC_BAD_INPUT);
-  }
-  const providerId = provider.trim();
-  if (!isSupportedOnboardingProvider(providerId)) {
-    throw new CodesignError(
-      `Provider "${providerId}" is not supported. Only anthropic, openai, openrouter, ollama.`,
-      ERROR_CODES.PROVIDER_NOT_SUPPORTED,
-    );
-  }
-  const isKeylessBuiltin = BUILTIN_PROVIDERS[providerId].requiresApiKey === false;
-  if (typeof apiKey !== 'string' || (apiKey.trim().length === 0 && !isKeylessBuiltin)) {
-    throw new CodesignError('apiKey must be a non-empty string', ERROR_CODES.IPC_BAD_INPUT);
-  }
-  const out: ValidateKeyInput = { provider: providerId, apiKey: apiKey.trim() };
-  const parsedBaseUrl = validOptionalUrl(baseUrl, 'baseUrl');
-  if (parsedBaseUrl !== undefined) out.baseUrl = parsedBaseUrl;
-  return out;
-}
-
-export function parseSetProviderAndModels(raw: unknown): SetProviderAndModelsInput {
-  if (typeof raw !== 'object' || raw === null) {
-    throw new CodesignError(
-      'set-provider-and-models expects an object payload',
-      ERROR_CODES.IPC_BAD_INPUT,
-    );
-  }
-  const r = raw as Record<string, unknown>;
-  const sv = r['schemaVersion'];
-  if (sv !== undefined && sv !== 1) {
-    throw new CodesignError(
-      `Unsupported schemaVersion ${String(sv)} (expected 1)`,
-      ERROR_CODES.IPC_BAD_INPUT,
-    );
-  }
-  const setAsActive = r['setAsActive'];
-  if (typeof setAsActive !== 'boolean') {
-    throw new CodesignError('setAsActive must be a boolean', ERROR_CODES.IPC_BAD_INPUT);
-  }
-  return {
-    ...parseSaveKeyPayload(
-      raw,
-      [...SAVE_KEY_FIELDS, 'schemaVersion', 'setAsActive'],
-      'set-provider-and-models',
-    ),
-    setAsActive,
-  };
 }
 
 export function parseAddProviderPayload(raw: unknown): AddCustomProviderInput {
@@ -276,7 +167,6 @@ export function parseAddProviderPayload(raw: unknown): AddCustomProviderInput {
   const wire = r['wire'];
   const baseUrl = r['baseUrl'];
   const apiKey = r['apiKey'];
-  const defaultModel = r['defaultModel'];
   if (typeof id !== 'string' || id.trim().length === 0) {
     throw new CodesignError('id must be a non-empty string', ERROR_CODES.IPC_BAD_INPUT);
   }
@@ -288,19 +178,17 @@ export function parseAddProviderPayload(raw: unknown): AddCustomProviderInput {
     throw new CodesignError(`Unsupported wire: ${String(wire)}`, ERROR_CODES.IPC_BAD_INPUT);
   }
   const parsedBaseUrl = validRequiredUrl(baseUrl, 'baseUrl');
-  const requiresApiKey = r['requiresApiKey'];
-  if (requiresApiKey !== undefined && typeof requiresApiKey !== 'boolean') {
-    throw new CodesignError('requiresApiKey must be a boolean', ERROR_CODES.IPC_BAD_INPUT);
+  const keyless = r['keyless'];
+  if (keyless !== undefined && typeof keyless !== 'boolean') {
+    throw new CodesignError('keyless must be a boolean', ERROR_CODES.IPC_BAD_INPUT);
   }
   if (typeof apiKey !== 'string') {
     throw new CodesignError('apiKey must be a string', ERROR_CODES.IPC_BAD_INPUT);
   }
-  if (apiKey.trim().length === 0 && requiresApiKey !== false) {
+  if (apiKey.trim().length === 0 && keyless !== true) {
     throw new CodesignError('apiKey must be a non-empty string', ERROR_CODES.IPC_BAD_INPUT);
   }
-  if (typeof defaultModel !== 'string' || defaultModel.trim().length === 0) {
-    throw new CodesignError('defaultModel must be a non-empty string', ERROR_CODES.IPC_BAD_INPUT);
-  }
+  const models = parseModelsList(r['models'], 'models');
   const setAsActive = r['setAsActive'];
   if (typeof setAsActive !== 'boolean') {
     throw new CodesignError('setAsActive must be a boolean', ERROR_CODES.IPC_BAD_INPUT);
@@ -311,9 +199,9 @@ export function parseAddProviderPayload(raw: unknown): AddCustomProviderInput {
     wire: parsedWire.data,
     baseUrl: parsedBaseUrl,
     apiKey: apiKey.trim(),
-    defaultModel: defaultModel.trim(),
+    models,
     setAsActive,
-    ...(requiresApiKey !== undefined ? { requiresApiKey } : {}),
+    ...(keyless !== undefined ? { keyless } : {}),
   };
   const headers = stringMapFromOptional(r['httpHeaders'], 'httpHeaders');
   if (headers !== undefined && Object.keys(headers).length > 0) out.httpHeaders = headers;
@@ -348,11 +236,11 @@ export function parseUpdateProviderPayload(raw: unknown): UpdateProviderInput {
     throw new CodesignError('id must be a non-empty string', ERROR_CODES.IPC_BAD_INPUT);
   }
   const out: UpdateProviderInput = { id: id.trim() };
-  if (r['requiresApiKey'] !== undefined) {
-    if (typeof r['requiresApiKey'] !== 'boolean') {
-      throw new CodesignError('requiresApiKey must be a boolean', ERROR_CODES.IPC_BAD_INPUT);
+  if (r['keyless'] !== undefined) {
+    if (typeof r['keyless'] !== 'boolean') {
+      throw new CodesignError('keyless must be a boolean', ERROR_CODES.IPC_BAD_INPUT);
     }
-    out.requiresApiKey = r['requiresApiKey'];
+    out.keyless = r['keyless'];
   }
   if (r['name'] !== undefined) {
     if (typeof r['name'] !== 'string' || r['name'].trim().length === 0) {
@@ -363,11 +251,8 @@ export function parseUpdateProviderPayload(raw: unknown): UpdateProviderInput {
   if (r['baseUrl'] !== undefined) {
     out.baseUrl = validRequiredUrl(r['baseUrl'], 'baseUrl');
   }
-  if (r['defaultModel'] !== undefined) {
-    if (typeof r['defaultModel'] !== 'string' || r['defaultModel'].trim().length === 0) {
-      throw new CodesignError('defaultModel must be a non-empty string', ERROR_CODES.IPC_BAD_INPUT);
-    }
-    out.defaultModel = r['defaultModel'].trim();
+  if (r['models'] !== undefined) {
+    out.models = parseModelsList(r['models'], 'models');
   }
   const headers = stringMapFromOptional(r['httpHeaders'], 'httpHeaders');
   if (headers !== undefined) out.httpHeaders = headers;

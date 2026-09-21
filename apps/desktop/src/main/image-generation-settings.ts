@@ -4,7 +4,6 @@ import {
   type GenerateImageOptions,
 } from '@open-codesign/providers';
 import {
-  CHATGPT_CODEX_PROVIDER_ID,
   CodesignError,
   type Config,
   ERROR_CODES,
@@ -23,7 +22,6 @@ import {
   type ImageGenerationSize,
   ImageGenerationSizeSchema,
 } from '@open-codesign/shared';
-import { getCodexTokenStore } from './codex-oauth-ipc';
 import { writeConfig } from './config';
 import { ipcMain } from './electron-runtime';
 import { buildSecretRef, decryptSecret } from './keychain';
@@ -134,21 +132,11 @@ function parseOptionalHttpUrl(raw: unknown, field: string): string | undefined {
 function isCredentialAvailabilityMiss(err: unknown): boolean {
   return (
     err instanceof CodesignError &&
-    (err.code === ERROR_CODES.CONFIG_MISSING ||
-      err.code === ERROR_CODES.PROVIDER_KEY_MISSING ||
-      err.code === ERROR_CODES.CODEX_TOKEN_NOT_LOGGED_IN)
+    (err.code === ERROR_CODES.CONFIG_MISSING || err.code === ERROR_CODES.PROVIDER_KEY_MISSING)
   );
 }
 
 async function hasInheritedImageCredential(provider: ImageGenerationProvider): Promise<boolean> {
-  if (provider === CHATGPT_CODEX_PROVIDER_ID) {
-    try {
-      return (await getCodexTokenStore().read()) !== null;
-    } catch (err) {
-      if (isCredentialAvailabilityMiss(err)) return false;
-      throw err;
-    }
-  }
   try {
     getApiKeyForProvider(provider);
     return true;
@@ -209,15 +197,7 @@ export async function resolveImageGenerationConfig(
   if (settings.enabled !== true) return null;
   const parsed = ImageGenerationSettingsSchema.parse(settings);
   let apiKey: string;
-  if (parsed.provider === CHATGPT_CODEX_PROVIDER_ID) {
-    if (parsed.credentialMode === 'custom') {
-      throw new CodesignError(
-        'ChatGPT subscription image generation uses the signed-in ChatGPT account, not a custom API key.',
-        ERROR_CODES.IPC_BAD_INPUT,
-      );
-    }
-    apiKey = await getCodexTokenStore().getValidAccessToken();
-  } else if (parsed.credentialMode === 'custom') {
+  if (parsed.credentialMode === 'custom') {
     if (parsed.apiKey === undefined) {
       throw new CodesignError(
         `Image generation is enabled but no custom API key is stored for "${parsed.provider}".`,
@@ -255,9 +235,6 @@ export async function imageGenerationKeyAvailable(cfg: Config | null): Promise<b
   const settings = cfg.imageGeneration;
   if (settings === undefined) return false;
   const parsed = ImageGenerationSettingsSchema.parse(settings);
-  if (parsed.provider === CHATGPT_CODEX_PROVIDER_ID) {
-    return await hasInheritedImageCredential(parsed.provider);
-  }
   if (parsed.credentialMode === 'custom') return parsed.apiKey !== undefined;
   return await hasInheritedImageCredential(parsed.provider);
 }
@@ -360,10 +337,7 @@ export async function updateImageGenerationSettings(
   const { apiKey: apiKeyPatch, ...safePatch } = patch;
   const provider = patch.provider ?? current.provider;
   const providerChanged = patch.provider !== undefined && patch.provider !== current.provider;
-  const credentialMode =
-    provider === CHATGPT_CODEX_PROVIDER_ID
-      ? 'inherit'
-      : (patch.credentialMode ?? current.credentialMode);
+  const credentialMode = patch.credentialMode ?? current.credentialMode;
   let next: ImageGenerationSettings = {
     ...current,
     ...safePatch,
@@ -374,13 +348,11 @@ export async function updateImageGenerationSettings(
   if (patch.baseUrl === undefined && providerChanged) {
     next.baseUrl = defaultImageBaseUrl(provider);
   }
-  if (providerChanged && apiKeyPatch === undefined && next.apiKey !== undefined) {
-    const { apiKey: _providerScopedKey, ...rest } = next;
-    next = rest;
-  }
-  if (provider === CHATGPT_CODEX_PROVIDER_ID && next.apiKey !== undefined) {
-    const { apiKey: _chatgptDoesNotUseCustomKey, ...rest } = next;
-    next = rest;
+  if (providerChanged && apiKeyPatch === undefined) {
+    if (next.apiKey !== undefined) {
+      const { apiKey: _providerScopedKey, ...rest } = next;
+      next = rest;
+    }
   }
   if (apiKeyPatch !== undefined) {
     const trimmed = apiKeyPatch.trim();
@@ -393,7 +365,7 @@ export async function updateImageGenerationSettings(
   }
   const parsed = ImageGenerationSettingsSchema.parse(next);
   const config = hydrateConfig({
-    version: 3,
+    version: 4,
     activeProvider: cfg.activeProvider,
     activeModel: cfg.activeModel,
     secrets: cfg.secrets,
