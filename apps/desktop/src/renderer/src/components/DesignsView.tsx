@@ -1,9 +1,15 @@
 import { useT } from '@open-codesign/i18n';
 import type { Design } from '@open-codesign/shared';
-import { Copy, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Copy, MessagesSquare, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import {
+  type DesignSortKey,
+  groupDesignsByWorkspace,
+  sortDesignsForList,
+} from '../lib/design-groups';
 import { relativeTime } from '../lib/relativeTime';
 import { useCodesignStore } from '../store';
+import { SegmentedControl } from './settings/primitives';
 
 /**
  * Derive a soft tinted gradient from the design id. Same id always gets the
@@ -29,6 +35,7 @@ export function DesignsView() {
   const switchDesign = useCodesignStore((s) => s.switchDesign);
   const openNewDesignDialog = useCodesignStore((s) => s.openNewDesignDialog);
   const duplicateDesign = useCodesignStore((s) => s.duplicateDesign);
+  const continueDesign = useCodesignStore((s) => s.continueDesign);
   const requestDeleteDesign = useCodesignStore((s) => s.requestDeleteDesign);
   const requestRenameDesign = useCodesignStore((s) => s.requestRenameDesign);
 
@@ -44,7 +51,24 @@ export function DesignsView() {
     return designs.filter((d) => d.name.toLowerCase().includes(q));
   }, [designs, query]);
 
+  const sortKey = useCodesignStore((s) => s.designsSortKey);
+  const setDesignsSortKey = useCodesignStore((s) => s.setDesignsSortKey);
+  const groups = useMemo(
+    () => (query.trim() ? [] : groupDesignsByWorkspace(designs, sortKey)),
+    [designs, sortKey, query],
+  );
+  const sortedFiltered = useMemo(
+    () => (query.trim() ? sortDesignsForList(filtered, sortKey) : filtered),
+    [filtered, sortKey, query],
+  );
+
   if (!open) return null;
+
+  const sortOptions = [
+    { value: 'createdAt' as DesignSortKey, label: t('hub.your.sortCreated') },
+    { value: 'updatedAt' as DesignSortKey, label: t('hub.your.sortUpdated') },
+    { value: 'lastSessionAt' as DesignSortKey, label: t('hub.your.sortSession') },
+  ];
 
   return (
     <div
@@ -90,6 +114,7 @@ export function DesignsView() {
             placeholder={t('projects.view.search')}
             className="flex-1 h-9 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[var(--text-sm)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:shadow-[0_0_0_3px_var(--color-focus-ring)] transition-[box-shadow,border-color] duration-150"
           />
+          <SegmentedControl options={sortOptions} value={sortKey} onChange={setDesignsSortKey} />
           <button
             type="button"
             onClick={() => openNewDesignDialog()}
@@ -107,20 +132,50 @@ export function DesignsView() {
                 ? t('projects.view.noMatches', { query: query.trim() })
                 : t('projects.view.empty')}
             </div>
-          ) : (
+          ) : query.trim() ? (
             <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {filtered.map((d) => (
+              {sortedFiltered.map((d) => (
                 <DesignCard
                   key={d.id}
                   design={d}
                   isCurrent={d.id === currentDesignId}
                   onOpen={() => void switchDesign(d.id)}
                   onRename={() => requestRenameDesign(d)}
+                  onContinue={() => void continueDesign(d.id)}
                   onDuplicate={() => void duplicateDesign(d.id)}
                   onDelete={() => requestDeleteDesign(d)}
                 />
               ))}
             </ul>
+          ) : (
+            <div className="flex flex-col gap-6">
+              {groups.map((group) => (
+                <section key={group.key} className="flex flex-col gap-3">
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-[var(--text-sm)] font-medium text-[var(--color-text-primary)] truncate">
+                      {group.title}
+                    </h3>
+                    <span className="text-[var(--text-xs)] text-[var(--color-text-muted)]">
+                      {t('hub.your.groupCount', { count: group.designs.length })}
+                    </span>
+                  </div>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {group.designs.map((d) => (
+                      <DesignCard
+                        key={d.id}
+                        design={d}
+                        isCurrent={d.id === currentDesignId}
+                        onOpen={() => void switchDesign(d.id)}
+                        onRename={() => requestRenameDesign(d)}
+                        onContinue={() => void continueDesign(d.id)}
+                        onDuplicate={() => void duplicateDesign(d.id)}
+                        onDelete={() => requestDeleteDesign(d)}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -133,6 +188,7 @@ function DesignCard({
   isCurrent,
   onOpen,
   onRename,
+  onContinue,
   onDuplicate,
   onDelete,
 }: {
@@ -140,6 +196,7 @@ function DesignCard({
   isCurrent: boolean;
   onOpen: () => void;
   onRename: () => void;
+  onContinue: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
@@ -182,6 +239,9 @@ function DesignCard({
         <div className="flex items-center gap-1 mt-auto pt-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
           <CardActionButton onClick={onRename} icon={<Pencil className="w-3.5 h-3.5" />}>
             {t('projects.view.rename')}
+          </CardActionButton>
+          <CardActionButton onClick={onContinue} icon={<MessagesSquare className="w-3.5 h-3.5" />}>
+            {t('projects.view.continueSession')}
           </CardActionButton>
           <CardActionButton onClick={onDuplicate} icon={<Copy className="w-3.5 h-3.5" />}>
             {t('projects.view.duplicate')}

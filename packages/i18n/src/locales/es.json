@@ -1056,7 +1056,12 @@
     "your": {
       "title": "Tus diseños",
       "empty": "No hay diseños guardados aún. Haz clic en \"Nuevo diseño\" para crear el primero.",
-      "openAria": "Abrir {{name}}"
+      "openAria": "Abrir {{name}}",
+      "sortCreated": "Creación",
+      "sortUpdated": "Modificación",
+      "sortSession": "Sesión",
+      "groupCount_one": "{{count}} diseño",
+      "groupCount_other": "{{count}} diseños"
     },
     "examples": {
       "title": "Ejemplos",

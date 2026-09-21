@@ -185,13 +185,24 @@ export function sessionFileForDesign(sessionDir: string, designId: string): stri
   return path.join(sessionDir, `${safeId}.jsonl`);
 }
 
+function lastSessionAtForDesign(db: Database, designId: string): string | null {
+  const file = sessionFileForDesign(db.sessionDir, designId);
+  if (!existsSync(file)) return null;
+  try {
+    return statSync(file).mtime.toISOString();
+  } catch {
+    return null;
+  }
+}
+
 export function listDesigns(db: Database): Design[] {
   return readStore(db)
     .designs.filter((design) => design.deletedAt === null)
     .sort((a, b) => {
       const updated = b.updatedAt.localeCompare(a.updatedAt);
       return updated !== 0 ? updated : b.createdAt.localeCompare(a.createdAt);
-    });
+    })
+    .map((design) => ({ ...design, lastSessionAt: lastSessionAtForDesign(db, design.id) }));
 }
 
 export function touchDesignActivity(

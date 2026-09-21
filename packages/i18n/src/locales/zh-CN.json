@@ -1115,7 +1115,11 @@
     "your": {
       "title": "我的设计",
       "empty": "还没有保存的设计。点击「新建设计」开始第一个项目。",
-      "openAria": "打开 {{name}}"
+      "openAria": "打开 {{name}}",
+      "sortCreated": "创建时间",
+      "sortUpdated": "修改时间",
+      "sortSession": "会话时间",
+      "groupCount_other": "{{count}} 个设计"
     },
     "examples": {
       "title": "示例",

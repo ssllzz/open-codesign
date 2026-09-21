@@ -1119,7 +1119,12 @@
     "your": {
       "title": "Your designs",
       "empty": "No designs saved yet. Click \"New design\" to create your first one.",
-      "openAria": "Open {{name}}"
+      "openAria": "Open {{name}}",
+      "sortCreated": "Created",
+      "sortUpdated": "Modified",
+      "sortSession": "Session",
+      "groupCount_one": "{{count}} design",
+      "groupCount_other": "{{count}} designs"
     },
     "examples": {
       "title": "Examples",

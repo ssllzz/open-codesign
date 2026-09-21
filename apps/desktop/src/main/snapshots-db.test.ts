@@ -1,3 +1,4 @@
+import { mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -12,6 +13,7 @@ import {
   listDiagnosticEvents,
   listSnapshots,
   recordDiagnosticEvent,
+  sessionFileForDesign,
   touchDesignActivity,
   updateDesignPreview,
   updateDesignWorkspace,
@@ -93,6 +95,29 @@ describe('json design store', () => {
 
     expect(getDesign(db, first.id)?.updatedAt).toBe('2099-01-01T00:00:00.000Z');
     expect(listDesigns(db).map((design) => design.id)).toEqual([first.id, second.id]);
+  });
+
+  it('derives lastSessionAt from the session JSONL mtime per design', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'codesign-last-session-'));
+    try {
+      const db = initSnapshotsDb(path.join(root, 'design-store.json'));
+      const chatty = createDesign(db, 'Chatty');
+      const quiet = createDesign(db, 'Quiet');
+
+      mkdirSync(db.sessionDir, { recursive: true });
+      const sessionFile = sessionFileForDesign(db.sessionDir, chatty.id);
+      writeFileSync(sessionFile, '{"type":"session_header"}\n', 'utf8');
+      const expectedMtime = statSync(sessionFile).mtime.toISOString();
+
+      const rows = listDesigns(db);
+      const chattyRow = rows.find((row) => row.id === chatty.id);
+      const quietRow = rows.find((row) => row.id === quiet.id);
+
+      expect(chattyRow?.lastSessionAt).toBe(expectedMtime);
+      expect(quietRow?.lastSessionAt).toBeNull();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it('touches design activity when workspace files are upserted', () => {

@@ -1026,7 +1026,12 @@
     "your": {
       "title": "Seus designs",
       "empty": "Nenhum design salvo ainda. Clique em \"Novo design\" para criar o primeiro.",
-      "openAria": "Abrir {{name}}"
+      "openAria": "Abrir {{name}}",
+      "sortCreated": "Criação",
+      "sortUpdated": "Modificação",
+      "sortSession": "Sessão",
+      "groupCount_one": "{{count}} design",
+      "groupCount_other": "{{count}} designs"
     },
     "examples": {
       "title": "Exemplos",

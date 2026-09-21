@@ -27,6 +27,7 @@ import type {
   WorkspaceImportSource,
 } from '../../preload/index';
 import { recordAction } from './lib/action-timeline';
+import type { DesignSortKey } from './lib/design-groups';
 import { tr, uniqueFiles } from './store/lib/locale';
 import { makeActiveMessagesSlice } from './store/slices/active-messages';
 import { makeChatSlice } from './store/slices/chat';
@@ -187,6 +188,7 @@ export interface CodesignState {
    *  then calls clearSettingsTab() so future opens are unbiased. */
   settingsTab: SettingsTab | null;
   hubTab: HubTab;
+  designsSortKey: DesignSortKey;
   previewViewport: PreviewViewport;
   toasts: Toast[];
   iframeErrors: string[];
@@ -353,6 +355,7 @@ export interface CodesignState {
   openSettingsTab: (tab: SettingsTab) => void;
   clearSettingsTab: () => void;
   setHubTab: (tab: HubTab) => void;
+  setDesignsSortKey: (sortKey: DesignSortKey) => void;
   setPreviewViewport: (viewport: PreviewViewport) => void;
 
   loadDesigns: () => Promise<void>;
@@ -538,6 +541,7 @@ export const useCodesignStore = create<CodesignState>((set, get) => ({
   previousView: 'hub' as AppView,
   settingsTab: null as SettingsTab | null,
   hubTab: 'recent' as HubTab,
+  designsSortKey: 'updatedAt' as DesignSortKey,
   previewViewport: 'desktop' as PreviewViewport,
   toasts: [],
   iframeErrors: [],
@@ -820,6 +824,10 @@ export const useCodesignStore = create<CodesignState>((set, get) => ({
 
   setHubTab(tab: HubTab) {
     set({ hubTab: tab });
+  },
+
+  setDesignsSortKey(sortKey: DesignSortKey) {
+    set({ designsSortKey: sortKey });
   },
 
   setPreviewViewport(viewport: PreviewViewport) {

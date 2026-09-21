@@ -26,6 +26,8 @@ export const DesignV1 = z.object({
   workspaceMode: z.enum(['blank-canvas', 'work-on-project']).optional(),
   previewMode: z.enum(['managed-file', 'connected-url', 'external-app', 'none']).optional(),
   previewUrl: z.string().nullable().optional(),
+  /** Derived at read time from the session JSONL mtime — not persisted. */
+  lastSessionAt: z.string().nullable().optional(),
 });
 export type Design = z.infer<typeof DesignV1>;
 export type WorkspaceMode = NonNullable<Design['workspaceMode']>;
