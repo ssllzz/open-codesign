@@ -624,7 +624,8 @@ export async function generateTitle(input: GenerateTitleInput): Promise<string> 
         ...(input.allowKeyless === true ? { allowKeyless: true } : {}),
         ...(input.reasoningLevel !== undefined ? { reasoning: input.reasoningLevel } : {}),
         ...(input.signal !== undefined ? { signal: input.signal } : {}),
-        maxTokens: 200,
+        // No maxTokens cap: reasoning models spend thinking tokens from the
+        // same output budget, so a small cap truncates before any title text.
       },
       {
         logger: log,

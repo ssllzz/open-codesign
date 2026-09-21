@@ -575,7 +575,7 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
         ];
         const judgeOpts: Parameters<typeof complete>[2] = {
           apiKey: input.apiKey ?? '',
-          maxTokens,
+          ...(maxTokens !== undefined ? { maxTokens } : {}),
           userImages,
           ...(input.baseUrl ? { baseUrl: input.baseUrl } : {}),
           ...(input.wire ? { wire: input.wire } : {}),

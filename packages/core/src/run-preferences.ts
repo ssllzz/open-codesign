@@ -13,7 +13,6 @@ import { remapProviderError } from './errors.js';
 import { type CoreLogger, NOOP_LOGGER } from './logger.js';
 import type { AskInput } from './tools/ask.js';
 
-const ROUTER_MAX_OUTPUT_TOKENS = 1_200;
 const MODES = new Set<DesignRunPreferenceMode>(['yes', 'no', 'auto']);
 const PROVENANCES = new Set<DesignRunPreferenceProvenance>(['explicit', 'inferred', 'default']);
 const CONFIDENCES = new Set<DesignRunPreferenceConfidence>(['high', 'medium', 'low']);
@@ -307,7 +306,8 @@ export async function routeRunPreferences(
         ...(input.httpHeaders !== undefined ? { httpHeaders: input.httpHeaders } : {}),
         ...(input.allowKeyless === true ? { allowKeyless: true } : {}),
         ...(input.reasoningLevel !== undefined ? { reasoning: input.reasoningLevel } : {}),
-        maxTokens: ROUTER_MAX_OUTPUT_TOKENS,
+        // No maxTokens cap: reasoning models spend thinking tokens from the
+        // same output budget, so a small cap truncates before any JSON.
       },
       {
         logger: log,

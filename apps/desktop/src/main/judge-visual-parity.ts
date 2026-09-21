@@ -117,7 +117,8 @@ export interface VisionPromptInput {
   systemPrompt: string;
   userText: string;
   userImages: Array<{ data: string; mimeType: string }>;
-  maxTokens: number;
+  /** Optional output cap. Omit for reasoning models — thinking tokens share the output budget. */
+  maxTokens?: number | undefined;
   signal?: AbortSignal | undefined;
 }
 
@@ -143,17 +144,14 @@ export function makeJudgeVisualParity(runVisionPrompt: RunVisionPromptFn): Judge
       { data: dataUrlToBase64(candidate.dataUrl), mimeType: candidate.mediaType },
     ];
 
-    // 4096 fits comfortably under the output cap of every vision model we
-    // currently route to (Gemini Flash ~8k, Sonnet ~8k, GPT-4o ~16k) and
-    // matches the judge's actual envelope: 12 short {passed, reason} entries
-    // + a 1-2 sentence summary lands at ~1.5k tokens in practice. 8000 was a
-    // worst-case safety buffer that caused waste on cheap models without
-    // helping correctness — review nit on PR #241.
+    // No maxTokens cap: reasoning models spend thinking tokens from the same
+    // output budget, so a cap (the historical 4096 from PR #241) truncated
+    // thinking-heavy models before any verdict JSON. The judge's actual
+    // envelope is ~1.5k visible tokens; uncapped runs stop naturally.
     const result = await runVisionPrompt({
       systemPrompt: SYSTEM_PROMPT,
       userText: USER_PROMPT,
       userImages,
-      maxTokens: 4096,
       ...(signal ? { signal } : {}),
     });
 

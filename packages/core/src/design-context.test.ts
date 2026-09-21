@@ -396,41 +396,7 @@ describe('updateDesignSessionBrief', () => {
     expect(completeWithRetryMock.mock.calls[0]?.[1][1].content).toContain('## Workspace MEMORY.md');
   });
 
-  it('retries a length stop once with a larger bounded budget and counts both attempts', async () => {
-    completeWithRetryMock
-      .mockRejectedValueOnce(
-        new CompletionLengthError({ inputTokens: 10, outputTokens: 2000, costUsd: 0.01 }),
-      )
-      .mockResolvedValueOnce({
-        content: JSON.stringify(baseBrief()),
-        inputTokens: 12,
-        outputTokens: 400,
-        costUsd: 0.02,
-      });
-    const result = await updateDesignSessionBrief({
-      existingBrief: baseBrief(),
-      conversationMessages: [agentUser('Make it warmer')],
-      designId: 'design-1',
-      designName: 'Onboarding',
-      model: MODEL,
-      apiKey: 'sk-test',
-      wire: 'openai-chat',
-      baseUrl: 'https://gateway.example/v1',
-      httpHeaders: { 'X-Test': 'brief' },
-    });
-    expect(completeWithRetryMock).toHaveBeenCalledTimes(2);
-    expect(completeWithRetryMock.mock.calls[0]?.[2].maxTokens).toBe(2000);
-    expect(completeWithRetryMock.mock.calls[1]?.[2]).toMatchObject({
-      maxTokens: 4000,
-      wire: 'openai-chat',
-      baseUrl: 'https://gateway.example/v1',
-      apiKey: 'sk-test',
-      httpHeaders: { 'X-Test': 'brief' },
-    });
-    expect(result).toMatchObject({ inputTokens: 22, outputTokens: 2400, costUsd: 0.03 });
-  });
-
-  it('stops after a second length error without mutating the previous brief', async () => {
+  it('surfaces a length error without retry or mutating the previous brief', async () => {
     const previous = baseBrief();
     const original = structuredClone(previous);
     const failure = new CompletionLengthError({
@@ -449,7 +415,8 @@ describe('updateDesignSessionBrief', () => {
         apiKey: 'sk-test',
       }),
     ).rejects.toBe(failure);
-    expect(completeWithRetryMock).toHaveBeenCalledTimes(2);
+    expect(completeWithRetryMock).toHaveBeenCalledTimes(1);
+    expect(completeWithRetryMock.mock.calls[0]?.[2]).not.toHaveProperty('maxTokens');
     expect(previous).toEqual(original);
   });
 
@@ -470,28 +437,6 @@ describe('updateDesignSessionBrief', () => {
       }),
     ).rejects.toBe(failure);
     expect(completeWithRetryMock).toHaveBeenCalledTimes(1);
-  });
-
-  it('rejects invalid JSON after truncation recovery without replacing the previous brief', async () => {
-    const previous = baseBrief();
-    const original = structuredClone(previous);
-    completeWithRetryMock
-      .mockRejectedValueOnce(
-        new CompletionLengthError({ inputTokens: 1, outputTokens: 2000, costUsd: 0 }),
-      )
-      .mockResolvedValueOnce({ content: '{"goal":', inputTokens: 1, outputTokens: 1, costUsd: 0 });
-    await expect(
-      updateDesignSessionBrief({
-        existingBrief: previous,
-        conversationMessages: [],
-        designId: 'design-1',
-        designName: 'Onboarding',
-        model: MODEL,
-        apiKey: 'sk-test',
-      }),
-    ).rejects.toThrow(/valid JSON/);
-    expect(completeWithRetryMock).toHaveBeenCalledTimes(2);
-    expect(previous).toEqual(original);
   });
 
   it('rejects invalid JSON so callers keep the previous brief', async () => {

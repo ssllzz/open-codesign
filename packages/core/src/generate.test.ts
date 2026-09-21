@@ -8,6 +8,10 @@ import { composeSystemPrompt, PROMPT_SECTION_FILES, PROMPT_SECTIONS } from './pr
 
 const completeMock = vi.fn();
 const loadBuiltinSkillsMock = vi.fn(async (): Promise<LoadedSkill[]> => []);
+const completeWithRetryMock = vi.fn((...args: unknown[]) => {
+  const impl = args[4] as ((...a: unknown[]) => unknown) | undefined;
+  return impl ? impl(args[0], args[1], args[2]) : undefined;
+});
 
 vi.mock('@open-codesign/providers', async () => {
   const actual = await vi.importActual<typeof import('@open-codesign/providers')>(
@@ -16,13 +20,7 @@ vi.mock('@open-codesign/providers', async () => {
   return {
     ...actual,
     complete: (...args: unknown[]) => completeMock(...args),
-    completeWithRetry: (
-      _model: unknown,
-      _messages: unknown,
-      _opts: unknown,
-      _retryOpts: unknown,
-      impl: (...args: unknown[]) => unknown,
-    ) => impl(_model, _messages, _opts),
+    completeWithRetry: (...args: unknown[]) => completeWithRetryMock(...args),
   };
 });
 
@@ -34,7 +32,12 @@ vi.mock('./skills/loader.js', async () => {
   };
 });
 
-import { applyComment, buildApplyCommentUserPrompt, reasoningForModel } from './index';
+import {
+  applyComment,
+  buildApplyCommentUserPrompt,
+  generateTitle,
+  reasoningForModel,
+} from './index';
 
 const MODEL: ModelRef = { provider: 'anthropic', modelId: 'claude-sonnet-4-6' };
 
@@ -51,6 +54,29 @@ describe('reasoningForModel', () => {
     expect(
       reasoningForModel({ provider: 'custom-coproxy-local', modelId: 'gpt-4o' }),
     ).toBeUndefined();
+  });
+});
+
+describe('generateTitle', () => {
+  it('sends no maxTokens cap so reasoning models keep their thinking budget', async () => {
+    completeWithRetryMock.mockResolvedValueOnce({ content: '金融科技演讲稿' });
+    await generateTitle({ prompt: '帮我做一个 fintech 路演演示', model: MODEL, apiKey: 'k' });
+    const opts = completeWithRetryMock.mock.calls[0]?.[2] as Record<string, unknown>;
+    expect('maxTokens' in opts).toBe(false);
+    expect(opts['maxTokens']).toBeUndefined();
+  });
+
+  it('passes reasoningLevel through and sanitizes the returned title', async () => {
+    completeWithRetryMock.mockResolvedValueOnce({ content: '"Calm Spaces 冥想 App"\n' });
+    const title = await generateTitle({
+      prompt: 'Design a meditation app',
+      model: MODEL,
+      apiKey: 'k',
+      reasoningLevel: 'medium',
+    });
+    expect(title).toBe('Calm Spaces 冥想 App');
+    const opts = completeWithRetryMock.mock.calls[0]?.[2] as Record<string, unknown>;
+    expect(opts['reasoning']).toBe('medium');
   });
 });
 
@@ -83,6 +109,7 @@ const _DESIGN_SYSTEM: StoredDesignSystem = {
 
 afterEach(() => {
   completeMock.mockReset();
+  completeWithRetryMock.mockReset();
   loadBuiltinSkillsMock.mockReset();
   loadBuiltinSkillsMock.mockResolvedValue([]);
 });

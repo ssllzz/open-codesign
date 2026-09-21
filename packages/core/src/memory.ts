@@ -16,7 +16,6 @@ import { escapeUntrustedXml, formatUntrustedContext } from './lib/context-format
 import { type CoreLogger, NOOP_LOGGER } from './logger.js';
 
 const MEMORY_SERIALIZE_LIMIT = 100_000;
-const MEMORY_MAX_OUTPUT_TOKENS = 2_000;
 
 function extractTextFromContent(content: unknown): string {
   if (typeof content === 'string') return content;
@@ -218,7 +217,8 @@ async function completeMemoryUpdate(
         ...(input.httpHeaders !== undefined ? { httpHeaders: input.httpHeaders } : {}),
         ...(input.allowKeyless === true ? { allowKeyless: true } : {}),
         ...(input.reasoningLevel !== undefined ? { reasoning: input.reasoningLevel } : {}),
-        maxTokens: MEMORY_MAX_OUTPUT_TOKENS,
+        // No maxTokens cap: reasoning models spend thinking tokens from the
+        // same output budget, so a small cap truncates before any summary.
       },
       {
         logger: log,
