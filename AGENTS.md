@@ -107,7 +107,7 @@ Do not reintroduce a verifier subagent, snip tool, custom bash tool, custom list
 - Package manager: `pnpm` only. Never use `npm` or `yarn`.
 - Build orchestration: Turborepo.
 - Lint and format: Biome.
-- Tests: Vitest for unit tests, Playwright for E2E.
+- Tests: Vitest everywhere; specs are colocated with source (`*.test.ts` next to the file). There is no Playwright E2E setup — "browser tests" are Vitest specs (`.browser.test.ts`) that launch system Chrome via `puppeteer-core` and `describe.skipIf` when Chrome is absent.
 - TypeScript: strict mode, `verbatimModuleSyntax`, bundler resolution, no `any`.
 - Commits: Conventional Commits.
 - Versioning: Changesets. Do not hand-edit `CHANGELOG.md`.
@@ -184,7 +184,6 @@ Do not hide blocked tool calls. Show the command, path, tier, and reason.
 pnpm i
 pnpm dev
 pnpm test
-pnpm test:e2e
 pnpm lint
 pnpm typecheck
 pnpm build
