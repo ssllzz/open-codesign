@@ -82,6 +82,21 @@ interface AgentScript {
     times?: number;
     params?: Record<string, unknown>;
   };
+  /**
+   * Runs right before executeTool fires on a prompt. Lets a later script
+   * mutate the stub workspace before done() re-verifies it.
+   */
+  beforeExecuteTool?: () => void;
+  /**
+   * Per-prompt scripts: prompt call #n uses promptScripts[n] merged over the
+   * base script when present. Lets tests script repair-drive turns on the
+   * same agent instance without mutating scriptedAgent mid-run.
+   * Semantics: an explicitly-undefined field still overrides the base value;
+   * continue() does not consult promptScripts; a retried agent's prompt
+   * index restarts at 0 (may re-apply promptScripts[0] alongside
+   * overrideScriptForCallIndex).
+   */
+  promptScripts?: Partial<AgentScript>[];
   messagesBeforeAssistant?: AgentMessage[];
   /**
    * When set, the mock switches to `overrideScript` starting from this
@@ -115,12 +130,14 @@ vi.mock('@mariozechner/pi-agent-core', () => {
     async prompt(message: unknown, images?: unknown[]): Promise<void> {
       this.call.prompts.push({ message, images });
       const callIndex = agentCalls.indexOf(this.call);
-      const script =
+      const baseScript =
         scriptedAgent.overrideScriptForCallIndex !== undefined &&
         callIndex >= scriptedAgent.overrideScriptForCallIndex &&
         scriptedAgent.overrideScript
           ? { ...scriptedAgent, ...scriptedAgent.overrideScript }
           : scriptedAgent;
+      const perPrompt = scriptedAgent.promptScripts?.[this.call.prompts.length - 1];
+      const script = perPrompt ? { ...baseScript, ...perPrompt } : baseScript;
       if (script.promptThrows) {
         const limit = script.promptThrowsTimes ?? Number.POSITIVE_INFINITY;
         if (this.call.prompts.length <= limit) {
@@ -186,6 +203,7 @@ vi.mock('@mariozechner/pi-agent-core', () => {
       }
 
       if (script.executeTool) {
+        script.beforeExecuteTool?.();
         const tool = this.call.options.initialState?.tools?.find(
           (candidate) => candidate.name === script.executeTool?.name,
         );
@@ -1116,8 +1134,51 @@ describe('generateViaAgent()', () => {
       code: ERROR_CODES.GENERATION_INCOMPLETE,
       message: expect.stringContaining('<img> without alt attribute'),
     });
+    await expect(result).rejects.toMatchObject({
+      message: expect.stringContaining('repair limit'),
+    });
     expect(fs.view('App.jsx')?.content).toBe(HTML_WITH_MISSING_ALT);
     expect(onComplete).toHaveBeenCalledOnce();
+  });
+
+  it('drives a repair turn when the agent stops without fixing done errors', async () => {
+    const fs = makeStubFs({ 'App.jsx': HTML_WITH_MISSING_ALT, 'DESIGN.md': VALID_DESIGN_MD });
+    scriptedAgent = {
+      assistantText: 'The design is ready.',
+      executeTool: { name: 'done', times: 1, params: { path: 'App.jsx' } },
+      promptScripts: [
+        {},
+        {
+          assistantText: 'Fixed the missing alt attribute.',
+          beforeExecuteTool: () => {
+            fs.create('App.jsx', SAMPLE_HTML);
+          },
+        },
+      ],
+    };
+    const onRetry = vi.fn();
+    const result = await generateViaAgent(
+      {
+        prompt: 'design a meditation app',
+        history: [],
+        model: MODEL,
+        apiKey: 'sk-test',
+        initialResourceState: resourceState({ mutationSeq: 1 }),
+      },
+      { fs, onRetry },
+    );
+
+    expect(onRetry).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: expect.stringContaining('repair turn') }),
+    );
+    expect(result.resourceState?.lastDone?.status).toBe('ok');
+    expect(result.artifacts).toHaveLength(1);
+    expect(result.message).toBe('Fixed the missing alt attribute.');
+    expect(agentCalls[0]?.prompts).toHaveLength(2);
+    expect(typeof agentCalls[0]?.prompts[1]?.message).toBe('string');
+    expect(agentCalls[0]?.prompts[1]?.message).toContain(
+      'Do not stop before done returns status "ok"',
+    );
   });
 
   it('succeeds when a later done check verifies the repaired design', async () => {

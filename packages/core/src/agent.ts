@@ -1522,7 +1522,7 @@ async function generateViaAgentInternal(
     }
   }
 
-  const finalAssistant = findFinalAssistantMessage(agent.state.messages);
+  let finalAssistant = findFinalAssistantMessage(agent.state.messages);
   if (!finalAssistant) {
     throw new CodesignError('Agent produced no assistant message', ERROR_CODES.PROVIDER_ERROR);
   }
@@ -1558,6 +1558,79 @@ async function generateViaAgentInternal(
     throw remapProviderError(new CodesignError(message, code), input.model.provider, input.wire);
   }
   log.info('[generate] step=send_request.ok', { ...ctx, ms: Date.now() - sendStart });
+
+  // Weaker models sometimes ignore the has_errors tool result and stop without
+  // repairing. Drive bounded extra repair turns before failing the whole run.
+  let doneRepairDrives = 0;
+  while (
+    lastDoneDetails?.status === 'has_errors' &&
+    !repairLimitReached() &&
+    doneRepairDrives < MAX_DONE_ERROR_ROUNDS &&
+    !input.signal?.aborted
+  ) {
+    doneRepairDrives += 1;
+    const driveErrors = lastDoneDetails.errors
+      .slice(0, 8)
+      .map(
+        (error) =>
+          `- ${error.source ? `${error.source}: ` : ''}${error.message}${error.lineno ? ` (line ${error.lineno})` : ''}`,
+      )
+      .join('\n');
+    log.warn('[generate] step=done_repair_drive', {
+      ...ctx,
+      drive: doneRepairDrives,
+      errorCount: lastDoneDetails.errors.length,
+    });
+    deps.onRetry?.({
+      attempt: doneRepairDrives,
+      totalAttempts: MAX_DONE_ERROR_ROUNDS,
+      delayMs: 0,
+      reason: 'done() reported unresolved errors; driving a repair turn',
+    });
+    try {
+      await admitRun(() =>
+        agent.prompt(
+          [
+            'The design verification still fails:',
+            driveErrors,
+            'These errors are from the last done() run — fix them in the workspace files, then call done(path) again to re-verify. Do not stop before done returns status "ok".',
+          ].join('\n'),
+        ),
+      );
+    } catch (err) {
+      if (err instanceof CodesignError && err.code === ERROR_CODES.GENERATION_INCOMPLETE) {
+        // Repair limit hit mid-drive (turn_end guard) — fall through to the
+        // detailed has_errors report below instead of the bare limit error.
+        break;
+      }
+      log.error('[generate] step=done_repair_drive.fail', {
+        ...ctx,
+        drive: doneRepairDrives,
+        errorClass: err instanceof Error ? err.constructor.name : typeof err,
+      });
+      throw remapProviderError(err, input.model.provider, input.wire);
+    }
+    const afterDrive = findFinalAssistantMessage(agent.state.messages);
+    if (!afterDrive || afterDrive.stopReason !== 'stop') {
+      if (afterDrive) {
+        log.warn('[generate] step=done_repair_drive.ended_unsettled', {
+          ...ctx,
+          drive: doneRepairDrives,
+          stopReason: afterDrive.stopReason,
+          ...(afterDrive.errorMessage !== undefined
+            ? { errorMessage: afterDrive.errorMessage }
+            : {}),
+        });
+      }
+      break;
+    }
+  }
+  // A successful repair turn replaces the pre-drive assistant message that
+  // would otherwise surface as the run's final prose. Only settle on the
+  // post-drive message when it stopped cleanly — an errored/aborted turn's
+  // partial text must not become the run's output.
+  const postDriveAssistant = findFinalAssistantMessage(agent.state.messages);
+  if (postDriveAssistant?.stopReason === 'stop') finalAssistant = postDriveAssistant;
 
   deps.onComplete?.(agent.state.messages);
 
