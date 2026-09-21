@@ -149,7 +149,12 @@ function validateString(
 
 function validateDimension(findings: DesignMdFinding[], value: unknown, path: string): void {
   if (typeof value !== 'string' || !/^-?\d+(?:\.\d+)?(?:px|em|rem)$/.test(value)) {
-    findings.push(error(path, 'Expected a dimension with px, em, or rem unit'));
+    findings.push(
+      error(
+        path,
+        'Expected a plain dimension like "70px" or "1.5rem" (px/em/rem only; no clamp(), calc(), or compound values — put those in component CSS, not DESIGN.md frontmatter)',
+      ),
+    );
   }
 }
 

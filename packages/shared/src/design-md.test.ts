@@ -198,6 +198,28 @@ components:
     );
   });
 
+  it('rejects CSS functions in dimensions with actionable repair guidance', () => {
+    const findings = validateDesignMd(
+      VALID_DESIGN_MD.replace('fontSize: 48px', 'fontSize: "clamp(38px, 5.4vw, 70px)"').replace(
+        '  md: 16px',
+        '  sectionY: "calc(110px * var(--density))"\n  hairline: "1px solid rgba(23,19,13,0.14)"',
+      ),
+    );
+    expect(findings).toContainEqual(
+      expect.objectContaining({
+        severity: 'error',
+        path: 'typography.h1.fontSize',
+        message: expect.stringContaining('no clamp(), calc()'),
+      }),
+    );
+    expect(findings).toContainEqual(
+      expect.objectContaining({ severity: 'error', path: 'spacing.sectionY' }),
+    );
+    expect(findings).toContainEqual(
+      expect.objectContaining({ severity: 'error', path: 'spacing.hairline' }),
+    );
+  });
+
   it('preserves unknown markdown sections while keeping them out of token validation', () => {
     const withUnknown = `${VALID_DESIGN_MD}\n\n## Voice\n\nWarm, exact, and quiet.`;
     const parsed = parseDesignMd(withUnknown);

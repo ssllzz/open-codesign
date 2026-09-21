@@ -128,7 +128,7 @@ function requiredDesignMdErrors(fs: TextEditorFsCallbacks, activePath: string): 
   return [
     {
       message:
-        'DESIGN.md is required before finishing substantive design work. Create a minimal Google-compatible DESIGN.md with version, name, colors, typography, rounded, spacing, and an Overview section.',
+        'DESIGN.md is required before finishing substantive design work. Create a minimal Google-compatible DESIGN.md with version, name, colors, typography, rounded, spacing, and an Overview section. Frontmatter values are plain tokens — hex colors and dimensions like "16px" or "1.5rem"; clamp()/calc() and compound values belong in component CSS, not frontmatter.',
       source: DESIGN_MD_ENTRY,
     },
   ];
@@ -351,6 +351,14 @@ function findJsxStructuralIssues(src: string): DoneError[] {
   let escaped = false;
   let inLineComment = false;
   let inBlockComment = false;
+  // Template-literal interpolation stack: one entry per open `${`, holding the
+  // local `{` depth inside that interpolation. A `}` at local depth 0 closes
+  // the `${...}` and returns to template text — neither the `${`'s `{` nor
+  // that `}` is a code brace, but braces inside the interpolation are. This is
+  // what makes nested template literals (`` `${c ? `inner${x}` : ""}` ``)
+  // balance: without it, an inner backtick ended the outer template early and
+  // the outer `${`'s closing `}` was counted unpaired.
+  const templateInterp: number[] = [];
   for (let i = 0; i < src.length; i += 1) {
     const ch = src[i];
     const next = src[i + 1];
@@ -367,6 +375,12 @@ function findJsxStructuralIssues(src: string): DoneError[] {
         inBlockComment = false;
         i += 1;
       }
+      continue;
+    }
+    if (inStr === '`' && ch === '$' && next === '{') {
+      templateInterp.push(0);
+      inStr = null;
+      i += 1;
       continue;
     }
     if (inStr) {
@@ -393,11 +407,25 @@ function findJsxStructuralIssues(src: string): DoneError[] {
     }
     if (ch === '(' || ch === '{' || ch === '[') {
       counters[ch] += 1;
+      const frameTop = templateInterp[templateInterp.length - 1];
+      if (ch === '{' && frameTop !== undefined) {
+        templateInterp[templateInterp.length - 1] = frameTop + 1;
+      }
       continue;
     }
     if (ch === ')') counters['('] -= 1;
-    else if (ch === '}') counters['{'] -= 1;
-    else if (ch === ']') counters['['] -= 1;
+    else if (ch === '}') {
+      const frameDepth = templateInterp[templateInterp.length - 1];
+      if (frameDepth === 0) {
+        templateInterp.pop();
+        inStr = '`';
+        continue;
+      }
+      if (frameDepth !== undefined) {
+        templateInterp[templateInterp.length - 1] = frameDepth - 1;
+      }
+      counters['{'] -= 1;
+    } else if (ch === ']') counters['['] -= 1;
   }
   if (counters['('] !== 0) {
     issues.push({

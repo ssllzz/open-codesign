@@ -421,6 +421,80 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);`,
     ).toBe(true);
   });
 
+  it('accepts nested template literals (production regression: aria-label interpolation)', async () => {
+    const fs = makeFs({
+      'index.html': `const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{}/*EDITMODE-END*/;
+const fmtTime = (s) => String(s);
+function Card({ show, ep, progInfo, pct }) {
+  return (
+    <div
+      aria-label={\`\${show.title}\${progInfo && !progInfo.done && pct > 0 ? \`，看到 \${fmtTime(progInfo.pos)}\` : ""}\`}
+      aria-label2={\`第\${ep.no}集\${progInfo && !progInfo.done && pct > 0 ? \`，看到 \${fmtTime(progInfo.pos)}\` : progInfo && progInfo.done ? "，已看完" : ""}\`}
+    />
+  );
+}
+function App() {
+  return <Card show={{ title: "t" }} ep={{ no: 1 }} progInfo={{ done: false, pos: 30 }} pct={0.5} />;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);`,
+    });
+    const tool = makeDoneTool(fs);
+    const res = await tool.execute('id-syntax-nested-template', {});
+    expect(res.details.errors.some((e) => /Unbalanced/.test(e.message))).toBe(false);
+  });
+
+  it('accepts triple-nested template literals with conditional labels', async () => {
+    const fs = makeFs({
+      'index.html': `const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{}/*EDITMODE-END*/;
+const fmtTime = (s) => String(s);
+function App() {
+  const hasResume = true;
+  const show = { kind: "series" };
+  const resumeEp = { title: "E1" };
+  const resumeW = { pos: 120 };
+  const label = \`▶ \${hasResume ? \`继续播放\${show.kind === "series" ? \` \${resumeEp.title}\` : ""}（\${fmtTime(resumeW.pos)}）\` : "立即播放"}\`;
+  return <div aria-label={label}>{label}</div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);`,
+    });
+    const tool = makeDoneTool(fs);
+    const res = await tool.execute('id-syntax-triple-nested-template', {});
+    expect(res.details.errors.some((e) => /Unbalanced/.test(e.message))).toBe(false);
+  });
+
+  it('tracks interpolation frame depth for object literals, comments, and escaped backticks', async () => {
+    const fs = makeFs({
+      'index.html': `const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{}/*EDITMODE-END*/;
+function App() {
+  const cond = true;
+  const y = 1;
+  const a = \`\${cond ? { a: 1 } : {}}\`;
+  const b = \`\${ /* } */ cond ? y : 0 }\`;
+  const c = \`a\\\`b\${y}c\`;
+  const d = \`\${\`in\${y}\`}\`;
+  return <div>{a}{b}{c}{d}</div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);`,
+    });
+    const tool = makeDoneTool(fs);
+    const res = await tool.execute('id-syntax-interp-depth', {});
+    expect(res.details.errors.some((e) => /Unbalanced/.test(e.message))).toBe(false);
+  });
+
+  it('still flags a genuinely unbalanced brace inside a template interpolation', async () => {
+    const fs = makeFs({
+      'index.html': `const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{}/*EDITMODE-END*/;
+function App() {
+  const x = \`\${ { a: 1 \`;
+  return <div>{x}</div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);`,
+    });
+    const tool = makeDoneTool(fs);
+    const res = await tool.execute('id-syntax-interp-unbalanced', {});
+    expect(res.details.errors.some((e) => /Unbalanced/.test(e.message))).toBe(true);
+  });
+
   it('flags missing ReactDOM.createRoot call when content is JSX-shaped', async () => {
     const fs = makeFs({
       'index.html': `const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{}/*EDITMODE-END*/;
