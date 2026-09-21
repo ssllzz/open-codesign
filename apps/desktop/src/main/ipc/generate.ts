@@ -996,6 +996,7 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
                 promptContext.designSystem !== null ||
                 Boolean(promptContext.projectContext.designMd?.trim()),
             };
+            const routePreferencesStart = Date.now();
             const routedPreferences = await withTlsBypass(tlsBypass, () =>
               routeRunPreferences({
                 prompt: payload.prompt,
@@ -1017,6 +1018,12 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
                 logger: coreLogger,
               }),
             );
+            logIpc.info('generate.run_preferences.route', {
+              generationId: id,
+              designId,
+              ms: Date.now() - routePreferencesStart,
+              elapsedMs: Date.now() - t0,
+            });
             const runPreferences = routedPreferences.preferences;
             if (runPreferenceStoreOptions !== null) {
               appendSessionRunPreferences(runPreferenceStoreOptions, designId, runPreferences);
