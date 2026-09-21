@@ -126,6 +126,7 @@ function ImageGenerationPanel() {
             options={[
               { value: 'openai', label: 'OpenAI' },
               { value: 'openrouter', label: 'OpenRouter' },
+              { value: 'volc', label: '火山方舟' },
             ]}
             onChange={(value) => {
               const provider = value as ImageGenerationSettingsView['provider'];
@@ -133,6 +134,8 @@ function ImageGenerationPanel() {
                 provider,
                 model: defaultImageModel(provider),
                 baseUrl: defaultImageBaseUrl(provider),
+                // volc has no chat provider to inherit a key from
+                ...(provider === 'volc' ? { credentialMode: 'custom' as const } : {}),
               });
             }}
           />
@@ -199,21 +202,23 @@ function ImageGenerationPanel() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-3)]">
-        <Row label={t('settings.imageGen.quality')}>
-          <NativeSelect
-            value={settings.quality}
-            disabled={saving}
-            options={[
-              { value: 'auto', label: 'Auto' },
-              { value: 'low', label: 'Low' },
-              { value: 'medium', label: 'Medium' },
-              { value: 'high', label: 'High' },
-            ]}
-            onChange={(quality) =>
-              void save({ quality: quality as ImageGenerationSettingsView['quality'] })
-            }
-          />
-        </Row>
+        {settings.provider !== 'volc' ? (
+          <Row label={t('settings.imageGen.quality')}>
+            <NativeSelect
+              value={settings.quality}
+              disabled={saving}
+              options={[
+                { value: 'auto', label: 'Auto' },
+                { value: 'low', label: 'Low' },
+                { value: 'medium', label: 'Medium' },
+                { value: 'high', label: 'High' },
+              ]}
+              onChange={(quality) =>
+                void save({ quality: quality as ImageGenerationSettingsView['quality'] })
+              }
+            />
+          </Row>
+        ) : null}
         <Row label={t('settings.imageGen.size')}>
           <NativeSelect
             value={settings.size}

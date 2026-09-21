@@ -189,7 +189,7 @@ describe('image generation enablement', () => {
     await expectRejectCode(imageGenerationKeyAvailable(cfg), ERROR_CODES.KEYCHAIN_UNAVAILABLE);
   });
 
-  it('clears provider-scoped custom keys when the image provider changes', async () => {
+  it('clears provider-scoped custom keys and resets credential mode when the image provider changes', async () => {
     const cfg = makeConfig(true);
     mocks.cachedConfig = hydrateConfig({
       version: 4,
@@ -218,7 +218,7 @@ describe('image generation enablement', () => {
 
     expect(view).toMatchObject({
       provider: 'openrouter',
-      credentialMode: 'custom',
+      credentialMode: 'inherit',
       model: 'openai/gpt-5.4-image-2',
       baseUrl: 'https://openrouter.ai/api/v1',
       hasCustomKey: false,
@@ -229,6 +229,79 @@ describe('image generation enablement', () => {
     const written = mocks.writeConfig.mock.calls[0]?.[0] as Config;
     expect(written.imageGeneration?.apiKey).toBeUndefined();
     expect(mocks.setCachedConfig).toHaveBeenCalledWith(written);
+  });
+
+  it('resets a keyless custom mode when switching away from volc', async () => {
+    const cfg = makeConfig(true);
+    mocks.cachedConfig = hydrateConfig({
+      version: 4,
+      activeProvider: cfg.activeProvider,
+      activeModel: cfg.activeModel,
+      providers: cfg.providers,
+      secrets: cfg.secrets,
+      imageGeneration: {
+        schemaVersion: IMAGE_GENERATION_SCHEMA_VERSION,
+        enabled: true,
+        provider: 'volc',
+        credentialMode: 'custom',
+        model: 'doubao-seedream-5-0-pro-260628',
+        baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+        quality: 'high',
+        size: '1536x1024',
+        outputFormat: 'png',
+      },
+    });
+    getApiKeyForProviderMock.mockReturnValue('sk-inherited-openai');
+
+    const view = await updateImageGenerationSettings({ provider: 'openai' });
+
+    expect(view).toMatchObject({
+      provider: 'openai',
+      credentialMode: 'inherit',
+      inheritedKeyAvailable: true,
+    });
+    expect(mocks.writeConfig).toHaveBeenCalledTimes(1);
+    const written = mocks.writeConfig.mock.calls[0]?.[0] as Config;
+    expect(written.imageGeneration?.credentialMode).toBe('inherit');
+  });
+
+  it('keeps an explicit custom credential mode when switching to volc', async () => {
+    const cfg = makeConfig(true);
+    mocks.cachedConfig = hydrateConfig({
+      version: 4,
+      activeProvider: cfg.activeProvider,
+      activeModel: cfg.activeModel,
+      providers: cfg.providers,
+      secrets: cfg.secrets,
+      imageGeneration: {
+        schemaVersion: IMAGE_GENERATION_SCHEMA_VERSION,
+        enabled: true,
+        provider: 'openai',
+        credentialMode: 'inherit',
+        model: 'gpt-image-2',
+        baseUrl: 'https://api.openai.com/v1',
+        quality: 'high',
+        size: '1536x1024',
+        outputFormat: 'png',
+      },
+    });
+
+    const view = await updateImageGenerationSettings({
+      provider: 'volc',
+      credentialMode: 'custom',
+      model: 'doubao-seedream-5-0-pro-260628',
+      baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+    });
+
+    expect(view).toMatchObject({
+      provider: 'volc',
+      credentialMode: 'custom',
+      model: 'doubao-seedream-5-0-pro-260628',
+      baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+    });
+    expect(mocks.writeConfig).toHaveBeenCalledTimes(1);
+    const written = mocks.writeConfig.mock.calls[0]?.[0] as Config;
+    expect(written.imageGeneration?.credentialMode).toBe('custom');
   });
 
   it('rejects malformed update fields instead of ignoring them', () => {

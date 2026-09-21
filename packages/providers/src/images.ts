@@ -1,6 +1,6 @@
 import { CodesignError, ERROR_CODES } from '@open-codesign/shared';
 
-export type ImageGenerationProvider = 'openai' | 'openrouter';
+export type ImageGenerationProvider = 'openai' | 'openrouter' | 'volc';
 export type ImageOutputFormat = 'png' | 'jpeg' | 'webp';
 export type ImageQuality = 'auto' | 'low' | 'medium' | 'high';
 export type ImageSize = 'auto' | '1024x1024' | '1536x1024' | '1024x1536';
@@ -149,6 +149,42 @@ function parseOpenRouterResponse(json: unknown): ImageResponseData {
   );
 }
 
+function buildVolcRequest(prompt: string, options: ResolvedImageOptions): ImageRequestPlan {
+  const body: Record<string, unknown> = {
+    model: options.model,
+    prompt,
+    // Ark defaults to a short-lived URL and an "AI generated" watermark;
+    // design assets need inline bytes and a clean canvas.
+    response_format: 'b64_json',
+    watermark: false,
+  };
+  if (options.size !== undefined && options.size !== 'auto') body['size'] = options.size;
+  return { path: 'images/generations', body };
+}
+
+function parseVolcResponse(json: unknown): ImageResponseData {
+  const first = (json as ImageGenerationsResponse).data?.[0];
+  if (first === undefined) {
+    throw new CodesignError(
+      'Volcengine Ark image response did not include data',
+      ERROR_CODES.PROVIDER_ERROR,
+    );
+  }
+  if (typeof first.b64_json === 'string' && first.b64_json.length > 0) {
+    const base64 = normalizeBase64ImageData(first.b64_json, 'Volcengine Ark image response');
+    // b64_json carries no MIME field — trust the byte signature instead.
+    const mimeType = sniffImageMimeType(base64, 'Volcengine Ark image response');
+    return { dataUrl: `data:${mimeType};base64,${base64}`, mimeType, base64 };
+  }
+  if (typeof first.url === 'string' && first.url.trim().startsWith('data:')) {
+    return parseDataUrl(first.url);
+  }
+  throw new CodesignError(
+    'Volcengine Ark image response did not include base64 image data',
+    ERROR_CODES.PROVIDER_ERROR,
+  );
+}
+
 const STRATEGIES: Record<ImageGenerationProvider, ImageProviderStrategy> = {
   openai: {
     defaultModel: 'gpt-image-2',
@@ -161,6 +197,12 @@ const STRATEGIES: Record<ImageGenerationProvider, ImageProviderStrategy> = {
     defaultBaseUrl: 'https://openrouter.ai/api/v1',
     buildRequest: buildOpenRouterRequest,
     parseResponse: (json) => parseOpenRouterResponse(json),
+  },
+  volc: {
+    defaultModel: 'doubao-seedream-5-0-pro-260628',
+    defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+    buildRequest: buildVolcRequest,
+    parseResponse: (json) => parseVolcResponse(json),
   },
 };
 
@@ -320,6 +362,17 @@ function detectImageSignature(bytes: Buffer): ImageSignatureMimeType | null {
     return 'image/webp';
   }
   return null;
+}
+
+function sniffImageMimeType(base64: string, source: string): ImageSignatureMimeType {
+  const signature = detectImageSignature(Buffer.from(base64, 'base64'));
+  if (signature === null) {
+    throw new CodesignError(
+      `${source} bytes did not match a supported image signature`,
+      ERROR_CODES.PROVIDER_ERROR,
+    );
+  }
+  return signature;
 }
 
 function validateImageSignature(mimeType: string, base64: string, source: string): void {

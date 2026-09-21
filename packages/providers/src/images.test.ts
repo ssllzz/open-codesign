@@ -108,6 +108,72 @@ describe('generateImage', () => {
     });
   });
 
+  it('calls Volcengine Ark image generations with b64_json and no watermark', async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(JSON.stringify({ data: [{ b64_json: PNG_HEADER_BASE64 }] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await generateImage({
+      provider: 'volc',
+      apiKey: 'ark-test',
+      prompt: 'hero image',
+      size: '1024x1024',
+      quality: 'high',
+      outputFormat: 'png',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://ark.cn-beijing.volces.com/api/v3/images/generations',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          model: defaultImageModel('volc'),
+          prompt: 'hero image',
+          response_format: 'b64_json',
+          watermark: false,
+          size: '1024x1024',
+        }),
+      }),
+    );
+    expect(result).toMatchObject({
+      provider: 'volc',
+      model: defaultImageModel('volc'),
+      mimeType: 'image/png',
+      dataUrl: `data:image/png;base64,${PNG_HEADER_BASE64}`,
+    });
+  });
+
+  it('omits size for Volcengine Ark when size is auto', async () => {
+    const fetchMock = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      void init;
+      return new Response(JSON.stringify({ data: [{ b64_json: WEBP_HEADER_BASE64 }] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await generateImage({
+      provider: 'volc',
+      apiKey: 'ark-test',
+      prompt: 'background texture',
+      size: 'auto',
+    });
+
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string);
+    expect(body).toEqual({
+      model: defaultImageModel('volc'),
+      prompt: 'background texture',
+      response_format: 'b64_json',
+      watermark: false,
+    });
+    expect(result.mimeType).toBe('image/webp');
+  });
+
   it('forwards size auto and background verbatim to OpenAI', async () => {
     const fetchMock = vi.fn(async () => {
       return new Response(JSON.stringify({ data: [{ b64_json: PNG_HEADER_BASE64 }] }), {

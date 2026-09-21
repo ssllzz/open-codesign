@@ -353,6 +353,13 @@ export async function updateImageGenerationSettings(
       const { apiKey: _providerScopedKey, ...rest } = next;
       next = rest;
     }
+    // The provider-scoped custom key is gone (or was never set) after the
+    // switch; custom mode has nothing left to read, so fall back to inherit.
+    // An explicit credentialMode in the same patch is a deliberate choice
+    // (e.g. the UI picks custom when switching to volc) and wins.
+    if (patch.credentialMode === undefined && next.credentialMode === 'custom') {
+      next = { ...next, credentialMode: 'inherit' };
+    }
   }
   if (apiKeyPatch !== undefined) {
     const trimmed = apiKeyPatch.trim();
