@@ -108,7 +108,7 @@ function findDesignIdForGeneration(
   return null;
 }
 
-function findRunningDesignForWorkspace(
+export function findRunningDesignForWorkspace(
   state: CodesignState,
   workspacePath: string,
   excludeDesignId: string,

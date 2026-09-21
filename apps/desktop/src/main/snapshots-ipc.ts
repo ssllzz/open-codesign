@@ -37,6 +37,7 @@ import {
   bindWorkspace,
   checkWorkspaceFolderExists,
   copyTrackedWorkspaceFiles,
+  findWorkspaceConflict,
   openWorkspaceFolder,
 } from './design-workspace';
 import {
@@ -50,6 +51,8 @@ import { getLogger } from './logger';
 import {
   appendSessionChatMessage,
   appendSessionComment,
+  appendSessionDesignBrief,
+  appendSessionRunPreferences,
   appendSessionToolStatus,
   type ChatToolStatusUpdate,
   listPendingSessionCommentEdits,
@@ -57,6 +60,9 @@ import {
   listSessionComments,
   markSessionCommentsApplied,
   markSessionCommentsAppliedIfUnchanged,
+  readSessionDesignBrief,
+  readSessionRunPreferences,
+  removeSessionChatFile,
   removeSessionComment,
   type SessionChatStoreOptions,
   seedSessionChatFromSnapshots,
@@ -880,6 +886,13 @@ export async function renameAutoManagedWorkspaceForDesign(input: {
     return null;
   }
 
+  // A shared workspace (session continuation) must not be moved out from under
+  // the other designs bound to it — keep the folder in place and rename only
+  // the design record.
+  if (findWorkspaceConflict(input.db, input.designBeforeRename.id, currentPath) !== null) {
+    return null;
+  }
+
   const nextPath = await allocateRenamedDefaultWorkspacePath(
     defaultRoot,
     input.newName,
@@ -1503,6 +1516,98 @@ export function registerSnapshotsIpc(db: Database): void {
           error: err instanceof Error ? err.message : String(err),
         });
         throw translateWorkspaceBindError(err, 'Workspace creation failed');
+      }
+    },
+  );
+
+  ipcMain.handle(
+    'snapshots:v1:continue-design',
+    async (_e: unknown, raw: unknown): Promise<Design> => {
+      if (typeof raw !== 'object' || raw === null) {
+        throw new CodesignError(
+          'snapshots:v1:continue-design expects { id, name }',
+          'IPC_BAD_INPUT',
+        );
+      }
+      const r = raw as Record<string, unknown>;
+      requireSchemaV1(r, 'snapshots:v1:continue-design');
+      if (typeof r['id'] !== 'string' || r['id'].trim().length === 0) {
+        throw new CodesignError('id must be a non-empty string', 'IPC_BAD_INPUT');
+      }
+      if (typeof r['name'] !== 'string' || r['name'].trim().length === 0) {
+        throw new CodesignError('name must be a non-empty string', 'IPC_BAD_INPUT');
+      }
+      const sourceId = r['id'] as string;
+      const name = (r['name'] as string).trim();
+      const source = await getDesignAfterPendingWorkspaceRename(
+        db,
+        'continue-design.lookup-source',
+        sourceId,
+      );
+      if (source === null) {
+        throw new CodesignError('Source design not found', 'IPC_NOT_FOUND');
+      }
+      const sourceWorkspacePath = requireBoundWorkspacePath(
+        source,
+        'Source design is not bound to a workspace',
+      );
+      const continued = runDb('continue-design.create', () => createDesign(db, name));
+      try {
+        const bound = await bindWorkspace(
+          db,
+          continued.id,
+          sourceWorkspacePath,
+          false,
+          'work-on-project',
+          {
+            allowShared: true,
+          },
+        );
+        const chatOpts = chatStoreOptions(db);
+        const brief = readSessionDesignBrief(chatOpts, sourceId);
+        if (brief !== null) {
+          appendSessionDesignBrief(chatOpts, continued.id, {
+            ...brief,
+            designId: continued.id,
+            designName: name,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+        const runPreferences = readSessionRunPreferences(chatOpts, sourceId);
+        if (runPreferences !== null) {
+          appendSessionRunPreferences(chatOpts, continued.id, runPreferences);
+        }
+        logger.info('design.session_continued', {
+          sourceId,
+          newId: bound.id,
+          workspacePath: bound.workspacePath,
+          briefInherited: brief !== null,
+          runPreferencesInherited: runPreferences !== null,
+        });
+        return bound;
+      } catch (err) {
+        try {
+          await removeSessionChatFile(chatStoreOptions(db), continued.id);
+        } catch (rollbackErr) {
+          logger.error('continue-design.rollback.chat-file.failed', {
+            designId: continued.id,
+            error: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr),
+          });
+        }
+        try {
+          runDb('continue-design.rollback', () => deleteDesignForRollback(db, continued.id));
+        } catch (rollbackErr) {
+          logger.error('continue-design.rollback.failed', {
+            designId: continued.id,
+            error: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr),
+          });
+        }
+        logger.warn('continue-design.failed', {
+          sourceId,
+          newId: continued.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        throw translateWorkspaceBindError(err, 'Session continuation failed');
       }
     },
   );

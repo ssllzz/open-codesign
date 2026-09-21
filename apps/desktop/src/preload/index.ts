@@ -652,6 +652,12 @@ const api = {
         id,
         name,
       }) as Promise<Design>,
+    continueDesign: (id: string, name: string) =>
+      ipcRenderer.invoke('snapshots:v1:continue-design', {
+        schemaVersion: 1,
+        id,
+        name,
+      }) as Promise<Design>,
     list: (designId: string) =>
       ipcRenderer.invoke('snapshots:v1:list', { schemaVersion: 1, designId }) as Promise<
         DesignSnapshot[]

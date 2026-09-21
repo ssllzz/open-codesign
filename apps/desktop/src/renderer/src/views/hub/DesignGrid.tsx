@@ -1,6 +1,6 @@
 import { useT } from '@open-codesign/i18n';
 import type { Design } from '@open-codesign/shared';
-import { FileText, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { FileText, MessagesSquare, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { type MouseEvent, useEffect, useState } from 'react';
 import { useCodesignStore } from '../../store';
 import { DesignCardPreview } from './DesignCardPreview';
@@ -76,6 +76,7 @@ export function DesignGrid({ designs, emptyLabel, prefixTile }: DesignGridProps)
   const setView = useCodesignStore((s) => s.setView);
   const requestRenameDesign = useCodesignStore((s) => s.requestRenameDesign);
   const requestDeleteDesign = useCodesignStore((s) => s.requestDeleteDesign);
+  const continueDesign = useCodesignStore((s) => s.continueDesign);
   const generationByDesign = useCodesignStore((s) => s.generationByDesign);
   const { pos, open, close } = useMenu();
 
@@ -189,6 +190,21 @@ export function DesignGrid({ designs, emptyLabel, prefixTile }: DesignGridProps)
             top: Math.min(pos.y, window.innerHeight - 100),
           }}
         >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              void continueDesign(pos.design.id);
+              close();
+            }}
+            className="w-full flex items-center gap-[var(--space-2)] px-[var(--space-3)] py-[var(--space-2)] text-left text-[var(--text-xs)] text-[var(--color-text-primary)] hover:bg-[var(--color-surface-hover)] transition-colors"
+          >
+            <MessagesSquare
+              className="w-3.5 h-3.5 text-[var(--color-text-secondary)]"
+              aria-hidden
+            />
+            {t('projects.view.continueSession')}
+          </button>
           <button
             type="button"
             role="menuitem"

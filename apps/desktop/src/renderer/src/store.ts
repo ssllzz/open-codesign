@@ -364,6 +364,7 @@ export interface CodesignState {
   renameCurrentDesign: (name: string) => Promise<void>;
   renameDesign: (id: string, name: string, options?: RenameDesignOptions) => Promise<void>;
   duplicateDesign: (id: string) => Promise<Design | null>;
+  continueDesign: (id: string) => Promise<Design | null>;
   softDeleteDesign: (id: string) => Promise<void>;
   openDesignsView: () => void;
   closeDesignsView: () => void;

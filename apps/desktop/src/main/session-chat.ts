@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import {
   type DesignSessionBriefV1,
@@ -25,7 +26,13 @@ import {
   DesignRunPreferencesV1 as DesignRunPreferencesV1Schema,
 } from '@open-codesign/shared';
 import { compactToolResultForHistory } from './ipc/tool-log';
-import { type Database, getDesign, listSnapshots, touchDesignActivity } from './snapshots-db';
+import {
+  type Database,
+  getDesign,
+  listSnapshots,
+  sessionFileForDesign,
+  touchDesignActivity,
+} from './snapshots-db';
 import { normalizeWorkspacePath } from './workspace-path';
 
 export const CHAT_MESSAGE_CUSTOM_TYPE = 'open-codesign.chat.message';
@@ -113,9 +120,13 @@ interface CustomEntryLike {
   timestamp?: string;
 }
 
-function sessionFileForDesign(sessionDir: string, designId: string): string {
-  const safeId = designId.replace(/[^A-Za-z0-9_-]/g, '_');
-  return path.join(sessionDir, `${safeId}.jsonl`);
+/** Best-effort removal of a design's session JSONL — used when rolling back a
+ *  partially created design so no orphan chat file stays on disk. */
+export async function removeSessionChatFile(
+  opts: SessionChatStoreOptions,
+  designId: string,
+): Promise<void> {
+  await rm(sessionFileForDesign(opts.sessionDir, designId), { force: true });
 }
 
 function resolveSessionCwd(opts: SessionChatStoreOptions, designId: string): string {

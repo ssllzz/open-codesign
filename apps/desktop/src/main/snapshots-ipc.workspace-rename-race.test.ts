@@ -218,6 +218,32 @@ describe('workspace files IPC during auto-managed workspace renames', () => {
     await expect(exists(newWorkspace)).resolves.toBe(false);
   });
 
+  it('keeps a shared auto-managed workspace in place when renaming the source design', async () => {
+    const db = initInMemoryDb();
+    const design = createDesign(db, 'Untitled design 1');
+    const oldWorkspace = path.join(root, 'Untitled-design-1');
+    const newWorkspace = path.join(root, 'Studio-Loop-Welcome-Email');
+    await mkdir(oldWorkspace);
+    await writeFile(path.join(oldWorkspace, 'App.jsx'), 'function App() { return null; }', 'utf8');
+    updateDesignWorkspace(db, design.id, oldWorkspace);
+    const continued = createDesign(db, 'Untitled design 1 — continued');
+    updateDesignWorkspace(db, continued.id, oldWorkspace, 'work-on-project');
+    registerSnapshotsIpc(db);
+
+    const renameDesign = getHandler('snapshots:v1:rename-design');
+    const updated = (await renameDesign(null, {
+      schemaVersion: 1,
+      id: design.id,
+      name: 'Studio Loop Welcome Email',
+    })) as Design;
+
+    expect(updated.name).toBe('Studio Loop Welcome Email');
+    expect(updated.workspacePath).toBe(normalizeWorkspacePath(oldWorkspace));
+    expect(getDesign(db, continued.id)?.workspacePath).toBe(normalizeWorkspacePath(oldWorkspace));
+    await expect(exists(path.join(oldWorkspace, 'App.jsx'))).resolves.toBe(true);
+    await expect(exists(newWorkspace)).resolves.toBe(false);
+  });
+
   it('stores a connected preview URL without moving the workspace folder', async () => {
     const db = initInMemoryDb();
     const design = createDesign(db, 'Local app');

@@ -1,11 +1,11 @@
-import { DEFAULT_SOURCE_ENTRY } from '@open-codesign/shared';
+import { DEFAULT_SOURCE_ENTRY, type Design } from '@open-codesign/shared';
 import {
   resolveDesignPreviewSource,
   type WorkspacePreviewReadResult,
 } from '../../preview/workspace-source.js';
 import type { CodesignState } from '../../store.js';
 import { tr } from '../lib/locale.js';
-import { projectGenerationForDesign } from './generation.js';
+import { findRunningDesignForWorkspace, projectGenerationForDesign } from './generation.js';
 import { recordPreviewSourceInPool } from './snapshots.js';
 import { DEFAULT_CANVAS_TABS } from './tabs.js';
 
@@ -37,6 +37,7 @@ interface DesignsSliceActions {
   renameCurrentDesign: CodesignState['renameCurrentDesign'];
   renameDesign: CodesignState['renameDesign'];
   duplicateDesign: CodesignState['duplicateDesign'];
+  continueDesign: CodesignState['continueDesign'];
   softDeleteDesign: CodesignState['softDeleteDesign'];
   openDesignsView: CodesignState['openDesignsView'];
   closeDesignsView: CodesignState['closeDesignsView'];
@@ -403,6 +404,52 @@ export function makeDesignsSlice(set: SetState, get: GetState): DesignsSliceActi
         });
         return null;
       }
+    },
+
+    async continueDesign(id: string) {
+      if (!window.codesign) return null;
+      const source = get().designs.find((d) => d.id === id);
+      if (!source) return null;
+      // The continuation shares the source workspace; starting one while the
+      // source — or any sibling design on the same folder — is mid-generation
+      // would let two sessions act on the same folder.
+      const state = get();
+      const busyOnSharedWorkspace =
+        state.generationByDesign[id] !== undefined ||
+        (source.workspacePath !== null &&
+          findRunningDesignForWorkspace(state, source.workspacePath, id) !== null);
+      if (busyOnSharedWorkspace) {
+        get().pushToast({
+          variant: 'info',
+          title: tr('projects.notifications.continueBlockedGenerating'),
+        });
+        return null;
+      }
+      const name = tr('projects.continueNameTemplate', { name: source.name });
+      let continued: Design;
+      try {
+        continued = await window.codesign.snapshots.continueDesign(id, name);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : tr('errors.unknown');
+        get().pushToast({
+          variant: 'error',
+          title: tr('projects.notifications.continueFailed'),
+          description: msg,
+        });
+        return null;
+      }
+      // loadDesigns toasts its own error then rethrows; swallow the rethrow so
+      // the continuation (already created) is not reported as failed.
+      // switchDesign never rethrows — errors surface inside its own toasts.
+      await get()
+        .loadDesigns()
+        .catch(() => undefined);
+      get().pushToast({
+        variant: 'success',
+        title: tr('projects.notifications.continued', { name: continued.name }),
+      });
+      await get().switchDesign(continued.id);
+      return continued;
     },
 
     async softDeleteDesign(id: string) {

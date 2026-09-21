@@ -140,12 +140,19 @@ export function checkWorkspaceFolderExists(p: string): boolean {
   return existsSync(p);
 }
 
+export interface BindWorkspaceOptions {
+  /** Allow binding a workspace path already owned by another design
+   *  (session continuation shares one folder across designs). */
+  allowShared?: boolean;
+}
+
 export async function bindWorkspace(
   db: Database,
   designId: string,
   workspacePath: string | null,
   migrateFiles: boolean,
   workspaceMode?: WorkspaceMode,
+  options?: BindWorkspaceOptions,
 ): Promise<Design> {
   const current = requireDesign(db, designId);
 
@@ -168,9 +175,11 @@ export async function bindWorkspace(
     logger.info('workspace.bind.noop', { designId, workspacePath: normalizedPath });
     return current;
   }
-  const conflict = findWorkspaceConflict(db, designId, normalizedPath);
-  if (conflict !== null) {
-    throw new Error(workspaceConflictMessage(conflict));
+  if (options?.allowShared !== true) {
+    const conflict = findWorkspaceConflict(db, designId, normalizedPath);
+    if (conflict !== null) {
+      throw new Error(workspaceConflictMessage(conflict));
+    }
   }
   await assertExistingWorkspaceDirectory(normalizedPath);
 

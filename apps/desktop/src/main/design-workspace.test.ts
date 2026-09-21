@@ -179,6 +179,44 @@ describe('bindWorkspace', () => {
     expect(getDesign(db, design.id)?.workspacePath).toBeNull();
   });
 
+  it('binds a shared workspace when allowShared is set', async () => {
+    const db = initInMemoryDb();
+    const design = createDesign(db, 'Website');
+    const continued = createDesign(db, 'Website continued');
+    const sharedPath = normalizeWorkspacePath(await makeTempDir('ocd-ws-shared-'));
+    updateDesignWorkspace(db, design.id, sharedPath, 'blank-canvas');
+
+    const bound = await bindWorkspace(db, continued.id, sharedPath, false, 'work-on-project', {
+      allowShared: true,
+    });
+
+    expect(bound.workspacePath).toBe(sharedPath);
+    expect(bound.workspaceMode).toBe('work-on-project');
+    expect(getDesign(db, design.id)?.workspacePath).toBe(sharedPath);
+  });
+
+  it.skipIf(process.platform !== 'win32')(
+    'treats case-variant shared paths as the same folder on Windows with allowShared',
+    async () => {
+      await withMockedPlatform('win32', async () => {
+        const db = initInMemoryDb();
+        const design = createDesign(db, 'Website');
+        const continued = createDesign(db, 'Website continued');
+        const sharedPath = normalizeWorkspacePath(await makeTempDir('ocd-ws-shared-case-'));
+        updateDesignWorkspace(db, design.id, sharedPath, 'blank-canvas');
+
+        const caseVariant = sharedPath.toUpperCase();
+
+        const bound = await bindWorkspace(db, continued.id, caseVariant, false, 'work-on-project', {
+          allowShared: true,
+        });
+
+        expect(bound.workspacePath).toBe(caseVariant);
+        expect(getDesign(db, design.id)?.workspacePath).toBe(sharedPath);
+      });
+    },
+  );
+
   it('rejects empty and relative workspace bindings before touching the db', async () => {
     const db = initInMemoryDb();
     const design = createDesign(db);

@@ -180,6 +180,11 @@ export function getDesign(db: Database, id: string): Design | null {
   return readStore(db).designs.find((design) => design.id === id) ?? null;
 }
 
+export function sessionFileForDesign(sessionDir: string, designId: string): string {
+  const safeId = designId.replace(/[^A-Za-z0-9_-]/g, '_');
+  return path.join(sessionDir, `${safeId}.jsonl`);
+}
+
 export function listDesigns(db: Database): Design[] {
   return readStore(db)
     .designs.filter((design) => design.deletedAt === null)
