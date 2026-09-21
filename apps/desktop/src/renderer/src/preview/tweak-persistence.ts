@@ -106,10 +106,16 @@ export async function resolveTweakWriteTarget(input: {
   if (!input.read)
     return { content: input.previewSource, path: input.path ?? DEFAULT_SOURCE_ENTRY };
   if (input.path) return input.read(input.designId, input.path);
-  let index: WorkspacePreviewReadResult;
+  // files:v1:read resolves missing files to an empty stub, so treat empty
+  // content the same as a rejection when probing for the real source entry.
+  let index: WorkspacePreviewReadResult | null = null;
   try {
-    index = await input.read(input.designId, DEFAULT_SOURCE_ENTRY);
+    const primary = await input.read(input.designId, DEFAULT_SOURCE_ENTRY);
+    index = primary.content.trim().length > 0 ? primary : null;
   } catch {
+    index = null;
+  }
+  if (index === null) {
     index = await input.read(input.designId, LEGACY_SOURCE_ENTRY);
   }
   return await resolveWorkspacePreviewSource({

@@ -192,6 +192,39 @@ describe('resolveTweakWriteTarget', () => {
       resolveTweakWriteTarget({ designId: 'd1', previewSource: jsxSource, read }),
     ).resolves.toEqual({ path: 'index.jsx', content: jsxSource });
   });
+
+  it('falls back to index.html when App.jsx reads as an empty stub', async () => {
+    const read = vi.fn<WorkspacePreviewRead>(async (_designId, path) => ({
+      path,
+      content: path === 'App.jsx' ? '' : jsxSource,
+    }));
+
+    await expect(
+      resolveTweakWriteTarget({ designId: 'd1', previewSource: jsxSource, read }),
+    ).resolves.toEqual({ path: 'index.html', content: jsxSource });
+  });
+
+  it('propagates the legacy read error when App.jsx is an empty stub', async () => {
+    const read = vi.fn<WorkspacePreviewRead>(async (_designId, path) => {
+      if (path === 'App.jsx') return { path, content: '' };
+      throw new Error('legacy read failed');
+    });
+
+    await expect(
+      resolveTweakWriteTarget({ designId: 'd1', previewSource: jsxSource, read }),
+    ).rejects.toThrow(/legacy read failed/);
+  });
+
+  it('resolves to the empty legacy entry when both probe reads miss', async () => {
+    const read = vi.fn<WorkspacePreviewRead>(async (_designId, path) => {
+      if (path === 'App.jsx') throw new Error('missing default source');
+      return { path, content: '' };
+    });
+
+    await expect(
+      resolveTweakWriteTarget({ designId: 'd1', previewSource: jsxSource, read }),
+    ).resolves.toEqual({ path: 'index.html', content: '' });
+  });
 });
 
 describe('persistTweakTokensToWorkspace', () => {

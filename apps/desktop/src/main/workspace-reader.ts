@@ -338,6 +338,14 @@ export async function resolveSafeWorkspaceChildPath(
   return absPath;
 }
 
+function isSystemError(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    (err as NodeJS.ErrnoException).code !== undefined &&
+    (err as NodeJS.ErrnoException).syscall !== undefined
+  );
+}
+
 async function readUtf8TextFile(abs: string): Promise<string> {
   const bytes = await readFile(abs);
   const content = UTF8_DECODER.decode(bytes);
@@ -538,6 +546,11 @@ export async function readWorkspaceFileAt(
     size = s.size;
     mtime = s.mtime;
   } catch (err) {
+    // Rethrow fs system errors untouched so callers can branch on `code`
+    // (e.g. the files:read IPC handler treats ENOENT as an empty workspace
+    // state). Node ERR_* errors (e.g. invalid UTF-8) carry no syscall and
+    // stay wrapped.
+    if (isSystemError(err)) throw err;
     throw new Error(`stat failed: ${err instanceof Error ? err.message : String(err)}`);
   }
   if (size > MAX_SINGLE_FILE_BYTES) {
@@ -552,6 +565,7 @@ export async function readWorkspaceFileAt(
   try {
     content = await readUtf8TextFile(abs);
   } catch (err) {
+    if (isSystemError(err)) throw err;
     throw new Error(`read failed: ${err instanceof Error ? err.message : String(err)}`);
   }
   return {

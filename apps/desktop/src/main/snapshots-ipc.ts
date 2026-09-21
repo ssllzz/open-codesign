@@ -2076,6 +2076,22 @@ export function registerWorkspaceIpc(db: Database, getWin: () => BrowserWindow |
         try {
           return await readWorkspaceFileAt(workspacePath, r['path'] as string);
         } catch (cause) {
+          // A missing file is a normal state (fresh design, nothing generated
+          // yet — e.g. a generation was interrupted before writing App.jsx).
+          // The renderer already treats empty content as "no preview yet", so
+          // return the same stub as the unbound-workspace branch instead of
+          // spamming the log with IPC errors on every open. Real I/O failures
+          // still surface as errors.
+          if ((cause as NodeJS.ErrnoException).code === 'ENOENT') {
+            const requestedPath = r['path'] as string;
+            return {
+              path: requestedPath,
+              kind: classifyWorkspaceFileKind(requestedPath),
+              size: 0,
+              updatedAt: new Date(0).toISOString(),
+              content: '',
+            };
+          }
           throw new CodesignError('Failed to read workspace file', 'IPC_BAD_INPUT', { cause });
         }
       });

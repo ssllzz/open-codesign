@@ -265,4 +265,10 @@ describe('workspace file metadata/read helpers', () => {
     await writeFile(join(root, 'invalid.jsx'), Buffer.from([0xff, 0xfe, 0xfd]));
     await expect(readWorkspaceFileAt(root, 'invalid.jsx')).rejects.toThrow(/read failed/);
   });
+
+  it('rejects missing single-file reads with the fs errno code intact', async () => {
+    await expect(readWorkspaceFileAt(root, 'missing.jsx')).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+  });
 });

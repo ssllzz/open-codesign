@@ -80,6 +80,30 @@ describe('workspace files IPC legacy workspace fallback', () => {
     });
   });
 
+  it('returns an empty typed file result when the workspace file is missing', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'codesign-read-missing-'));
+    try {
+      const db = initInMemoryDb();
+      const design = createDesign(db, 'Fresh workspace');
+      updateDesignWorkspace(db, design.id, root);
+      registerWorkspaceIpc(db, () => null);
+
+      const read = getHandler('codesign:files:v1:read');
+
+      await expect(
+        read(null, { schemaVersion: 1, designId: design.id, path: 'App.jsx' }),
+      ).resolves.toEqual({
+        path: 'App.jsx',
+        kind: 'jsx',
+        size: 0,
+        updatedAt: new Date(0).toISOString(),
+        content: '',
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('returns a lightweight preview for office documents in a bound workspace', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'codesign-preview-workspace-'));
     await writeFile(path.join(root, 'brief.docx'), Buffer.from('not-real-office-but-previewable'));
