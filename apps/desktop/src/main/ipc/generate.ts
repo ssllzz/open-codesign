@@ -487,6 +487,7 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
     const toolStartedAt = new Map<string, number>();
     const templatesRoot = path_module.join(app.getPath('userData'), 'templates');
     const currentWorkspaceRoot = () => requireWorkspaceRootForDesign(designId).workspaceRoot;
+    const assembleStart = Date.now();
     const [frames, designSkills, initialWorkspaceFiles] = await Promise.all([
       loadFrameTemplates(path_module.join(templatesRoot, 'frames')),
       loadDesignSkills(path_module.join(templatesRoot, 'design-skills')),
@@ -507,6 +508,10 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
     });
     const cfg = getCachedConfig();
     const imageConfig = cfg ? await resolveImageGenerationConfig(cfg) : null;
+    logIpc.info('generate.assemble_runtime', {
+      generationId: id,
+      ms: Date.now() - assembleStart,
+    });
     const imageLog = getLogger('image-generation');
     const generateImageAsset = imageConfig
       ? async (
@@ -566,6 +571,10 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
     let deltaCount = 0;
     let turnTextBuffer = '';
     let toolCount = 0;
+    let turnStartAt = 0;
+    let turnFirstEventMs: number | null = null;
+    let turnToolMs = 0;
+    let lastTurnEndAt = 0;
     const renderUiKit = makeUiKitRenderer();
     const judgeVisualParity = makeJudgeVisualParity(
       async ({ systemPrompt, userText, userImages, maxTokens, signal: judgeSignal }) => {
@@ -650,17 +659,30 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
             deltaCount = 0;
             turnTextBuffer = '';
             toolCount = 0;
-            logIpc.info('agent.turn_start', { generationId: id });
+            turnStartAt = Date.now();
+            turnFirstEventMs = null;
+            turnToolMs = 0;
+            logIpc.info('agent.turn_start', {
+              generationId: id,
+              ...(lastTurnEndAt > 0 ? { sinceLastTurnEndMs: turnStartAt - lastTurnEndAt } : {}),
+            });
           } else if (event.type === 'message_update') {
             const ame = event.assistantMessageEvent;
             if (ame.type === 'text_delta') {
+              if (turnFirstEventMs === null && turnStartAt > 0)
+                turnFirstEventMs = Date.now() - turnStartAt;
               deltaCount += 1;
               if (typeof ame.delta === 'string') turnTextBuffer += ame.delta;
             }
           } else if (event.type === 'tool_execution_start') {
+            if (turnFirstEventMs === null && turnStartAt > 0)
+              turnFirstEventMs = Date.now() - turnStartAt;
             toolCount += 1;
             logIpc.info('agent.tool_start', { generationId: id, tool: event.toolName });
           } else if (event.type === 'tool_execution_end') {
+            const startedAt = toolStartedAt.get(event.toolCallId);
+            const toolMs = startedAt !== undefined ? Date.now() - startedAt : undefined;
+            if (toolMs !== undefined) turnToolMs += toolMs;
             const streamedResult = summarizeToolResultForStream(event.toolName, event.result);
             const streamStatus = toolExecutionStatusForStream({
               ...event,
@@ -671,12 +693,19 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
               tool: event.toolName,
               isError: streamStatus.status === 'error',
               status: streamStatus.status,
+              ...(toolMs !== undefined ? { ms: toolMs } : {}),
             });
           } else if (event.type === 'turn_end') {
+            const turnMs = turnStartAt > 0 ? Date.now() - turnStartAt : undefined;
+            lastTurnEndAt = Date.now();
             logIpc.info('agent.turn_end', {
               generationId: id,
               deltas: deltaCount,
               tools: toolCount,
+              ...(turnMs !== undefined
+                ? { ms: turnMs, llmEstimateMs: Math.max(0, turnMs - turnToolMs) }
+                : {}),
+              ...(turnFirstEventMs !== null ? { firstEventMs: turnFirstEventMs } : {}),
             });
           } else if (event.type === 'agent_end') {
             logIpc.info('agent.end', { generationId: id });
@@ -888,13 +917,24 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
             fileInventory,
           } = await withStableWorkspacePath(payload.designId, async () => {
             const { designId, workspaceRoot } = requireWorkspaceRootForDesign(payload.designId);
+            const prepareContextStart = Date.now();
             const promptContext = await preparePromptContext({
               attachments: payload.attachments,
               referenceUrl: payload.referenceUrl,
               designSystem: cfg.designSystem ?? null,
               workspaceRoot,
             });
+            logIpc.info('generate.prepare_context', {
+              generationId: id,
+              ms: Date.now() - prepareContextStart,
+            });
+            const workspaceScanStart = Date.now();
             const workspaceFiles = await listWorkspaceFilesAt(workspaceRoot);
+            logIpc.info('generate.workspace_scan', {
+              generationId: id,
+              ms: Date.now() - workspaceScanStart,
+              fileCount: workspaceFiles.length,
+            });
             const paths: string[] = [];
             let pathChars = 0;
             for (const file of workspaceFiles) {
@@ -912,7 +952,12 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
             let memoryLoadWarning: string | undefined;
             if (prefs.memoryEnabled) {
               try {
+                const memoryLoadStart = Date.now();
                 memoryContext = await loadMemoryContext(workspaceRoot);
+                logIpc.info('generate.memory.load', {
+                  generationId: id,
+                  ms: Date.now() - memoryLoadStart,
+                });
               } catch (err) {
                 memoryLoadWarning = `Project memory unavailable: ${err instanceof Error ? err.message : String(err)}`;
                 logIpc.warn('memory.load.fail', {
@@ -1028,6 +1073,7 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
             if (runPreferenceStoreOptions !== null) {
               appendSessionRunPreferences(runPreferenceStoreOptions, designId, runPreferences);
             }
+            const contextPackStart = Date.now();
             const contextPack = buildDesignContextPack({
               chatRows,
               brief: existingBrief,
@@ -1044,6 +1090,7 @@ export function registerGenerateIpc({ db, getMainWindow }: RegisterGenerateIpcDe
             });
             logIpc.info('generate.context', {
               generationId: id,
+              ms: Date.now() - contextPackStart,
               ...contextPack.trace,
             });
             const result = await withTlsBypass(tlsBypass, () =>
