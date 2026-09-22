@@ -1,6 +1,7 @@
 import { getCurrentLocale, useT, useTranslation } from '@open-codesign/i18n';
 import type { LocalInputFile, OnboardingState } from '@open-codesign/shared';
-import { FolderOpen, Link2, Paperclip, X } from 'lucide-react';
+import { IconButton, Tooltip } from '@open-codesign/ui';
+import { FolderOpen, Link2, MessagesSquare, Paperclip, X } from 'lucide-react';
 import { useCallback, useEffect, useRef } from 'react';
 import { useCodesignStore } from '../store';
 import { AskModal } from './AskModal';
@@ -9,6 +10,7 @@ import { ChatMessageList } from './chat/ChatMessageList';
 import { CommentChipBar } from './chat/CommentChipBar';
 import { EmptyState } from './chat/EmptyState';
 import { PromptInput, type PromptInputHandle } from './chat/PromptInput';
+import { SessionSwitcher } from './chat/SessionSwitcher';
 import { ModelSwitcher } from './ModelSwitcher';
 
 export interface SidebarProps {
@@ -68,9 +70,9 @@ function ContextIcon({ icon }: { icon: ComposerContextItem['icon'] }) {
  *
  * Replaces the single-shot prompt box with a chat history backed by the
  * session JSONL chat store. See docs/plans/2026-04-20-agentic-sidebar-
- * custom-endpoint-design.md §5 for the full spec. Multi-design switcher
- * stays deferred; the design name + "+" header shows the single current
- * design only.
+ * custom-endpoint-design.md §5 for the full spec. The header hosts the
+ * "new chat" entry: another session on this same workspace; the current
+ * session stays listed in the sidebar.
  */
 export function Sidebar({ prefillPrompt }: SidebarProps) {
   const t = useT();
@@ -104,6 +106,7 @@ export function Sidebar({ prefillPrompt }: SidebarProps) {
   const sendActiveMessage = useCodesignStore((s) => s.sendActiveMessage);
   const activeMessagesByDesign = useCodesignStore((s) => s.activeMessagesByDesign);
   const recoverActiveMessage = useCodesignStore((s) => s.recoverActiveMessage);
+  const continueDesign = useCodesignStore((s) => s.continueDesign);
   const activeMessages = currentDesignId ? (activeMessagesByDesign[currentDesignId] ?? []) : [];
 
   const promptInputRef = useRef<PromptInputHandle>(null);
@@ -147,8 +150,23 @@ export function Sidebar({ prefillPrompt }: SidebarProps) {
       style={{ minHeight: 0, minWidth: 0 }}
       aria-label={t('sidebar.ariaLabel')}
     >
-      {/* Header — clean, no collapse */}
-      <div className="h-[var(--space-3)] shrink-0" />
+      {/* "New chat" keeps this workspace and starts a separate session;
+          the current session stays available in the sidebar. */}
+      <div className="flex shrink-0 items-center px-[var(--space-4)] pt-[var(--space-3)] pb-[var(--space-1)]">
+        <Tooltip label={t('sidebar.newChat')} side="bottom">
+          <IconButton
+            size="sm"
+            label={t('sidebar.newChat')}
+            disabled={!currentDesignId || isGenerating}
+            onClick={() => {
+              if (!currentDesignId) return;
+              void continueDesign(currentDesignId);
+            }}
+          >
+            <MessagesSquare className="w-4 h-4" aria-hidden />
+          </IconButton>
+        </Tooltip>
+      </div>
 
       {/* Chat scroll area */}
       <div className="codesign-scroll-area min-h-0 flex-1 overflow-y-auto px-[var(--space-4)] py-[var(--space-4)]">
@@ -293,7 +311,8 @@ export function Sidebar({ prefillPrompt }: SidebarProps) {
             />
           }
         />
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-[var(--space-2)] px-[2px]">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-[var(--space-2)] px-[2px]">
+          <SessionSwitcher />
           <ModelSwitcher variant="sidebar" />
           {lastTokens !== null ? (
             <span

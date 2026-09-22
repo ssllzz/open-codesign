@@ -1,5 +1,7 @@
 import { useT } from '@open-codesign/i18n';
+import type { Design } from '@open-codesign/shared';
 import { Plus } from 'lucide-react';
+import { folderRepresentative, groupDesignsByWorkspace } from '../../lib/design-groups';
 import { useCodesignStore } from '../../store';
 import { DesignGrid } from './DesignGrid';
 
@@ -10,15 +12,28 @@ interface DesignRun {
   stage: string;
 }
 
-export function buildRecentDesigns<
-  T extends { id: string; updatedAt: string; deletedAt: string | null },
->(designs: T[], generationByDesign: Record<string, DesignRun>, limit = RECENT_LIMIT): T[] {
-  const sorted = [...designs]
-    .filter((d) => d.deletedAt === null)
-    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+/** One card per workspace folder: the latest session fronts the folder
+ *  (an actively generating member takes precedence) and carries the series
+ *  name, so sibling sessions never crowd the recent list. */
+export function buildRecentDesigns(
+  designs: Design[],
+  generationByDesign: Record<string, DesignRun>,
+  limit = RECENT_LIMIT,
+): Design[] {
+  const live = designs.filter((d) => d.deletedAt === null);
+  const groups = groupDesignsByWorkspace(live, 'updatedAt');
+  const representatives = groups
+    .map((group) =>
+      folderRepresentative(
+        group.designs,
+        group.title,
+        (d) => generationByDesign[d.id] !== undefined,
+      ),
+    )
+    .filter((d): d is Design => d !== undefined);
   const activeIds = new Set([...Object.keys(generationByDesign)]);
-  const active = sorted.filter((d) => activeIds.has(d.id));
-  const rest = sorted.filter((d) => !activeIds.has(d.id));
+  const active = representatives.filter((d) => activeIds.has(d.id));
+  const rest = representatives.filter((d) => !activeIds.has(d.id));
   return [...active, ...rest].slice(0, limit);
 }
 

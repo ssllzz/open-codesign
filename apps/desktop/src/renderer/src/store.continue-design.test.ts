@@ -121,6 +121,38 @@ describe('continueDesign action', () => {
     expect(useCodesignStore.getState().switchDesign).not.toHaveBeenCalled();
   });
 
+  it('strips a previous continuation suffix instead of stacking it', async () => {
+    const second: Design = { ...SOURCE, id: 'design-3', name: 'Test design — continued (2)' };
+    const continueDesignIpc = vi.fn(async () => second);
+    vi.stubGlobal('window', {
+      codesign: {
+        snapshots: { continueDesign: continueDesignIpc, listDesigns: vi.fn(async () => [SOURCE]) },
+      },
+    });
+    useCodesignStore.setState({ designs: [SOURCE, CONTINUED] });
+
+    const result = await useCodesignStore.getState().continueDesign(CONTINUED.id);
+
+    expect(result).toEqual(second);
+    expect(continueDesignIpc).toHaveBeenCalledWith(CONTINUED.id, 'Test design — continued (2)');
+  });
+
+  it('strips a dedupe number and reuses the un-numbered name when free', async () => {
+    const numbered: Design = { ...SOURCE, id: 'design-2', name: 'Test design — continued (2)' };
+    const continued: Design = { ...SOURCE, id: 'design-3', name: 'Test design — continued' };
+    const continueDesignIpc = vi.fn(async () => continued);
+    vi.stubGlobal('window', {
+      codesign: {
+        snapshots: { continueDesign: continueDesignIpc, listDesigns: vi.fn(async () => [SOURCE]) },
+      },
+    });
+    useCodesignStore.setState({ designs: [numbered] });
+
+    await useCodesignStore.getState().continueDesign(numbered.id);
+
+    expect(continueDesignIpc).toHaveBeenCalledWith(numbered.id, 'Test design — continued');
+  });
+
   it('toasts an error and does not switch when the IPC rejects', async () => {
     const continueDesignIpc = vi.fn(async () => {
       throw new Error('Source design is not bound to a workspace');

@@ -1,6 +1,6 @@
 import type { Design } from '@open-codesign/shared';
 import { describe, expect, it } from 'vitest';
-import { groupDesignsByWorkspace, sortDesignsForList } from './design-groups';
+import { folderRepresentative, groupDesignsByWorkspace, sortDesignsForList } from './design-groups';
 
 function makeDesign(overrides: Partial<Design> & { id: string }): Design {
   return {
@@ -124,5 +124,51 @@ describe('groupDesignsByWorkspace', () => {
     const groups = groupDesignsByWorkspace([staleSeries, activeSeries], 'lastSessionAt');
 
     expect(groups.map((g) => g.designs[0]?.id)).toEqual(['a', 'b']);
+  });
+});
+
+describe('folderRepresentative', () => {
+  it('fronts the top-sorted member with the series name', () => {
+    const source = makeDesign({ id: 'a', workspacePath: SERIES_PATH });
+    const continued = makeDesign({
+      id: 'b',
+      name: 'Design a — continued',
+      workspacePath: SERIES_PATH,
+      updatedAt: '2026-09-10T00:00:00.000Z',
+    });
+    const [group] = groupDesignsByWorkspace([source, continued], 'updatedAt');
+
+    const rep = group ? folderRepresentative(group.designs, group.title) : undefined;
+
+    expect(rep?.id).toBe('b');
+    expect(rep?.name).toBe('Design a');
+  });
+
+  it('prefers an actively generating member over the newest one', () => {
+    const newest = makeDesign({
+      id: 'a',
+      workspacePath: SERIES_PATH,
+      updatedAt: '2026-09-20T00:00:00.000Z',
+    });
+    const working = makeDesign({
+      id: 'b',
+      workspacePath: SERIES_PATH,
+      updatedAt: '2026-09-01T00:00:00.000Z',
+    });
+    const [group] = groupDesignsByWorkspace([newest, working], 'updatedAt');
+
+    const rep = group
+      ? folderRepresentative(group.designs, group.title, (d) => d.id === 'b')
+      : undefined;
+
+    expect(rep?.id).toBe('b');
+  });
+
+  it('returns the member untouched when it already carries the series name', () => {
+    const solo = makeDesign({ id: 'a', name: 'Solo' });
+
+    const rep = folderRepresentative([solo], 'Solo');
+
+    expect(rep).toBe(solo);
   });
 });

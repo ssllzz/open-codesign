@@ -306,6 +306,10 @@
     "comments": {
       "title": "Modo de comentário",
       "body": "Comentários inline no canvas chegam na v0.2.1. Você poderá clicar em qualquer elemento da pré-visualização para deixar uma nota ou instrução de edição."
+    },
+    "sessionSwitcher": {
+      "menuLabel": "Trocar sessão",
+      "heading": "Sessões nesta pasta"
     }
   },
   "settings": {
@@ -751,7 +755,6 @@
       "noMatches": "Nenhum design corresponde a \"{{query}}\".",
       "open": "Abrir",
       "rename": "Renomear",
-      "continueSession": "Nova sessão",
       "duplicate": "Duplicar",
       "delete": "Excluir",
       "edited": "Editado {{when}}",
@@ -764,7 +767,10 @@
       "label": "Nome do design",
       "placeholder": "ex.: Hero da landing page",
       "save": "Salvar",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "aiName": "Nomear com IA",
+      "aiFailed": "Falha ao nomear com IA",
+      "aiNothingToSummarize": "Ainda não há conteúdo de conversa para resumir"
     },
     "delete": {
       "title": "Excluir este design?",
@@ -1048,10 +1054,7 @@
         "template": "A partir de template",
         "other": "Outro"
       },
-      "createdAt": "Criado {{date}}",
-      "moreActions": "Mais ações para {{name}}",
-      "rename": "Renomear",
-      "delete": "Excluir"
+      "createdAt": "Criado {{date}}"
     }
   },
   "create": {

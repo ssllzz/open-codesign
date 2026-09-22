@@ -306,6 +306,10 @@
     "comments": {
       "title": "Modo comentario",
       "body": "Los comentarios en línea en el lienzo llegarán en la v0.2.1. Podrás hacer clic en cualquier elemento de la vista previa para dejar una nota o una instrucción de edición."
+    },
+    "sessionSwitcher": {
+      "menuLabel": "Cambiar sesión",
+      "heading": "Sesiones en esta carpeta"
     }
   },
   "settings": {
@@ -782,7 +786,6 @@
       "noMatches": "Ningún diseño coincide con \"{{query}}\".",
       "open": "Abrir",
       "rename": "Renombrar",
-      "continueSession": "Nueva sesión",
       "duplicate": "Duplicar",
       "delete": "Eliminar",
       "edited": "Editado {{when}}",
@@ -795,7 +798,10 @@
       "label": "Nombre del diseño",
       "placeholder": "ej. Hero de landing page",
       "save": "Guardar",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "aiName": "Nombre con IA",
+      "aiFailed": "Error al nombrar con IA",
+      "aiNothingToSummarize": "Todavía no hay contenido de conversación para resumir"
     },
     "delete": {
       "title": "¿Eliminar este diseño?",
@@ -1078,10 +1084,7 @@
         "template": "De plantilla",
         "other": "Otro"
       },
-      "createdAt": "Creado {{date}}",
-      "moreActions": "Más acciones para {{name}}",
-      "rename": "Renombrar",
-      "delete": "Eliminar"
+      "createdAt": "Creado {{date}}"
     }
   },
   "create": {

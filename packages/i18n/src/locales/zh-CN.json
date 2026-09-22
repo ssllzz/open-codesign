@@ -343,6 +343,10 @@
     "comments": {
       "title": "批注模式",
       "body": "画布内批注将在 v0.2.1 支持。届时你可以点选预览中的任意元素，写下注释或编辑指令。"
+    },
+    "sessionSwitcher": {
+      "menuLabel": "切换会话",
+      "heading": "此文件夹的会话"
     }
   },
   "settings": {
@@ -846,7 +850,6 @@
       "noMatches": "没有名字匹配“{{query}}”的设计。",
       "open": "打开",
       "rename": "重命名",
-      "continueSession": "新会话",
       "duplicate": "复制",
       "delete": "删除",
       "edited": "{{when}} 编辑",
@@ -858,7 +861,10 @@
       "label": "设计名",
       "placeholder": "比如：落地页 hero 区",
       "save": "保存",
-      "cancel": "取消"
+      "cancel": "取消",
+      "aiName": "AI 命名",
+      "aiFailed": "AI 命名失败",
+      "aiNothingToSummarize": "还没有可总结的会话内容"
     },
     "delete": {
       "title": "删除该设计？",
@@ -1136,10 +1142,7 @@
         "template": "模板",
         "other": "其他"
       },
-      "createdAt": "创建于 {{date}}",
-      "moreActions": "更多操作：{{name}}",
-      "rename": "重命名",
-      "delete": "删除"
+      "createdAt": "创建于 {{date}}"
     }
   },
   "create": {

@@ -425,7 +425,26 @@ export function makeDesignsSlice(set: SetState, get: GetState): DesignsSliceActi
         });
         return null;
       }
-      const name = tr('projects.continueNameTemplate', { name: source.name });
+      // Repeated "new session" clicks must not stack the template suffix
+      // ("X — continued — continued"). Render the template with an empty name
+      // to recover the locale-specific suffix, strip it (plus any dedupe
+      // number) from the source name, then number the result if a sibling
+      // session already owns it.
+      const continueSuffix = tr('projects.continueNameTemplate', { name: '' });
+      // Strip a number tail only when it trails the continuation suffix, so
+      // user-authored names like "Report (2024)" keep their tail.
+      const numberTail = / \(\d+\)$/.exec(source.name);
+      const unnumbered = numberTail ? source.name.slice(0, numberTail.index) : source.name;
+      const rootName =
+        continueSuffix.length > 0 && unnumbered.endsWith(continueSuffix)
+          ? unnumbered.slice(0, -continueSuffix.length)
+          : source.name;
+      const baseName = tr('projects.continueNameTemplate', { name: rootName });
+      const takenNames = new Set(state.designs.map((d) => d.name));
+      let name = baseName;
+      for (let n = 2; takenNames.has(name); n++) {
+        name = `${baseName} (${n})`;
+      }
       let continued: Design;
       try {
         continued = await window.codesign.snapshots.continueDesign(id, name);

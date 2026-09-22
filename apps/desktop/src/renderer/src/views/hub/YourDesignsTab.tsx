@@ -1,7 +1,11 @@
 import { useT } from '@open-codesign/i18n';
 import { useMemo } from 'react';
 import { SegmentedControl } from '../../components/settings/primitives';
-import { type DesignSortKey, groupDesignsByWorkspace } from '../../lib/design-groups';
+import {
+  type DesignSortKey,
+  folderRepresentative,
+  groupDesignsByWorkspace,
+} from '../../lib/design-groups';
 import { useCodesignStore } from '../../store';
 import { DesignGrid } from './DesignGrid';
 
@@ -29,19 +33,23 @@ export function YourDesignsTab() {
       <div className="flex justify-end">
         <SegmentedControl options={sortOptions} value={sortKey} onChange={setDesignsSortKey} />
       </div>
-      {groups.map((group) => (
-        <section key={group.key} className="flex flex-col gap-[var(--space-3)]">
-          <div className="flex items-baseline gap-[var(--space-2)] px-[2px]">
-            <h3 className="text-[var(--text-sm)] font-medium text-[var(--color-text-primary)] truncate">
-              {group.title}
-            </h3>
-            <span className="text-[var(--text-xs)] text-[var(--color-text-muted)]">
-              {t('hub.your.groupCount', { count: group.designs.length })}
-            </span>
-          </div>
-          <DesignGrid designs={group.designs} emptyLabel={t('hub.your.empty')} />
-        </section>
-      ))}
+      {groups.map((group) => {
+        const representative = folderRepresentative(group.designs, group.title);
+        if (representative === undefined) return null;
+        return (
+          <section key={group.key} className="flex flex-col gap-[var(--space-3)]">
+            <div className="flex items-baseline gap-[var(--space-2)] px-[2px]">
+              <h3 className="text-[var(--text-sm)] font-medium text-[var(--color-text-primary)] truncate">
+                {group.title}
+              </h3>
+              <span className="text-[var(--text-xs)] text-[var(--color-text-muted)]">
+                {t('hub.your.groupCount', { count: group.designs.length })}
+              </span>
+            </div>
+            <DesignGrid designs={[representative]} emptyLabel={t('hub.your.empty')} />
+          </section>
+        );
+      })}
     </div>
   );
 }

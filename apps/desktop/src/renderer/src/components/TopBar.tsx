@@ -1,6 +1,12 @@
 import { useT } from '@open-codesign/i18n';
 import { IconButton, Wordmark } from '@open-codesign/ui';
-import { AlertCircle, ArrowLeft, FolderOpen, Settings as SettingsIcon } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowLeft,
+  FolderOpen,
+  LayoutGrid,
+  Settings as SettingsIcon,
+} from 'lucide-react';
 import { type CSSProperties, useEffect } from 'react';
 import { type HubTab, useCodesignStore } from '../store';
 import { LanguageToggle } from './LanguageToggle';
@@ -31,6 +37,7 @@ export function TopBar() {
   const unreadErrorCount = useCodesignStore((s) => s.unreadErrorCount);
   const refreshDiagnosticEvents = useCodesignStore((s) => s.refreshDiagnosticEvents);
   const openSettingsTab = useCodesignStore((s) => s.openSettingsTab);
+  const openDesignsView = useCodesignStore((s) => s.openDesignsView);
 
   // Pull-based: refresh the diagnostic counter on mount so a page reload
   // surfaces errors recorded while the window was closed. No polling.
@@ -166,6 +173,9 @@ export function TopBar() {
         <div className="flex items-center gap-[var(--space-1)]" style={noDragStyle}>
           <LanguageToggle />
           <ThemeToggle />
+          <IconButton label={t('projects.view.title')} size="md" onClick={openDesignsView}>
+            <LayoutGrid className="w-[18px] h-[18px]" aria-hidden />
+          </IconButton>
           <IconButton label={t('settings.title')} size="md" onClick={() => setView('settings')}>
             <SettingsIcon className="w-[18px] h-[18px]" />
           </IconButton>

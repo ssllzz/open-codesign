@@ -34,6 +34,19 @@ export function sortDesignsForList(designs: Design[], sortKey: DesignSortKey): D
   return [...designs].sort((a, b) => compareBySortKey(a, b, sortKey));
 }
 
+/** Front a workspace folder with a single card in aggregated views: the
+ *  actively-generating member when present, else the top-sorted design,
+ *  carrying the series name so the card reads as the folder. */
+export function folderRepresentative(
+  designs: Design[],
+  title: string,
+  isActive?: (design: Design) => boolean,
+): Design | undefined {
+  const rep = (isActive ? designs.find(isActive) : undefined) ?? designs[0];
+  if (rep === undefined) return undefined;
+  return rep.name === title ? rep : { ...rep, name: title };
+}
+
 export function groupDesignsByWorkspace(designs: Design[], sortKey: DesignSortKey): DesignGroup[] {
   const membersByKey = new Map<string, Design[]>();
   for (const design of designs) {

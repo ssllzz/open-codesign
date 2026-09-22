@@ -1,6 +1,6 @@
 import { useT } from '@open-codesign/i18n';
 import type { Design } from '@open-codesign/shared';
-import { Copy, MessagesSquare, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Copy, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   type DesignSortKey,
@@ -35,7 +35,6 @@ export function DesignsView() {
   const switchDesign = useCodesignStore((s) => s.switchDesign);
   const openNewDesignDialog = useCodesignStore((s) => s.openNewDesignDialog);
   const duplicateDesign = useCodesignStore((s) => s.duplicateDesign);
-  const continueDesign = useCodesignStore((s) => s.continueDesign);
   const requestDeleteDesign = useCodesignStore((s) => s.requestDeleteDesign);
   const requestRenameDesign = useCodesignStore((s) => s.requestRenameDesign);
 
@@ -141,7 +140,6 @@ export function DesignsView() {
                   isCurrent={d.id === currentDesignId}
                   onOpen={() => void switchDesign(d.id)}
                   onRename={() => requestRenameDesign(d)}
-                  onContinue={() => void continueDesign(d.id)}
                   onDuplicate={() => void duplicateDesign(d.id)}
                   onDelete={() => requestDeleteDesign(d)}
                 />
@@ -167,7 +165,6 @@ export function DesignsView() {
                         isCurrent={d.id === currentDesignId}
                         onOpen={() => void switchDesign(d.id)}
                         onRename={() => requestRenameDesign(d)}
-                        onContinue={() => void continueDesign(d.id)}
                         onDuplicate={() => void duplicateDesign(d.id)}
                         onDelete={() => requestDeleteDesign(d)}
                       />
@@ -188,7 +185,6 @@ function DesignCard({
   isCurrent,
   onOpen,
   onRename,
-  onContinue,
   onDuplicate,
   onDelete,
 }: {
@@ -196,7 +192,6 @@ function DesignCard({
   isCurrent: boolean;
   onOpen: () => void;
   onRename: () => void;
-  onContinue: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
@@ -239,9 +234,6 @@ function DesignCard({
         <div className="flex items-center gap-1 mt-auto pt-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
           <CardActionButton onClick={onRename} icon={<Pencil className="w-3.5 h-3.5" />}>
             {t('projects.view.rename')}
-          </CardActionButton>
-          <CardActionButton onClick={onContinue} icon={<MessagesSquare className="w-3.5 h-3.5" />}>
-            {t('projects.view.continueSession')}
           </CardActionButton>
           <CardActionButton onClick={onDuplicate} icon={<Copy className="w-3.5 h-3.5" />}>
             {t('projects.view.duplicate')}

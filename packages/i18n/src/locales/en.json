@@ -343,6 +343,10 @@
     "comments": {
       "title": "Comment mode",
       "body": "Inline comments on the canvas arrive in v0.2.1. You'll be able to click any element in the preview to leave a note or an edit instruction."
+    },
+    "sessionSwitcher": {
+      "menuLabel": "Switch session",
+      "heading": "Sessions in this folder"
     }
   },
   "settings": {
@@ -846,7 +850,6 @@
       "noMatches": "No designs match \"{{query}}\".",
       "open": "Open",
       "rename": "Rename",
-      "continueSession": "New session",
       "duplicate": "Duplicate",
       "delete": "Delete",
       "edited": "Edited {{when}}",
@@ -859,7 +862,10 @@
       "label": "Design name",
       "placeholder": "e.g. Landing page hero",
       "save": "Save",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "aiName": "AI naming",
+      "aiFailed": "AI naming failed",
+      "aiNothingToSummarize": "No conversation content to summarize yet"
     },
     "delete": {
       "title": "Delete this design?",
@@ -1141,10 +1147,7 @@
         "template": "From template",
         "other": "Other"
       },
-      "createdAt": "Created {{date}}",
-      "moreActions": "More actions for {{name}}",
-      "rename": "Rename",
-      "delete": "Delete"
+      "createdAt": "Created {{date}}"
     }
   },
   "create": {

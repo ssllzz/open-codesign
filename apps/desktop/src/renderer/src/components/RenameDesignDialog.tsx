@@ -1,14 +1,19 @@
 import { useT } from '@open-codesign/i18n';
+import { Loader2, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useCodesignStore } from '../store';
+import { cleanGenerateErrorMessage } from '../store/slices/errors';
+import { buildRenamePrompt } from './chat/rename-ai';
 
 export function RenameDesignDialog() {
   const t = useT();
   const target = useCodesignStore((s) => s.designToRename);
   const close = useCodesignStore((s) => s.requestRenameDesign);
   const renameDesign = useCodesignStore((s) => s.renameDesign);
+  const pushToast = useCodesignStore((s) => s.pushToast);
 
   const [value, setValue] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -31,6 +36,48 @@ export function RenameDesignDialog() {
     e.preventDefault();
     if (!target || !canSave) return;
     void renameDesign(target.id, trimmed);
+  }
+
+  async function handleAiName() {
+    if (!target || aiBusy || !window.codesign) return;
+    // The dialog stays mounted across targets; bail if the user renames a
+    // different design while the naming request is in flight.
+    const targetId = target.id;
+    const stillCurrent = () => useCodesignStore.getState().designToRename?.id === targetId;
+    setAiBusy(true);
+    try {
+      const rows = await window.codesign.chat.list(targetId);
+      if (!stillCurrent()) return;
+      const prompt = buildRenamePrompt({
+        currentName: target.name,
+        rows,
+        thumbnailText: target.thumbnailText,
+      });
+      if (prompt.length === 0) {
+        pushToast({
+          variant: 'info',
+          title: t('projects.rename.aiNothingToSummarize'),
+        });
+        return;
+      }
+      const generated = (await window.codesign.generateTitle(prompt)).trim();
+      if (!stillCurrent()) return;
+      if (generated.length > 0) {
+        setValue(generated);
+        requestAnimationFrame(() => {
+          inputRef.current?.select();
+        });
+      }
+    } catch (err) {
+      if (!stillCurrent()) return;
+      pushToast({
+        variant: 'error',
+        title: t('projects.rename.aiFailed'),
+        ...(err instanceof Error ? { description: cleanGenerateErrorMessage(err.message) } : {}),
+      });
+    } finally {
+      setAiBusy(false);
+    }
   }
 
   return (
@@ -66,21 +113,37 @@ export function RenameDesignDialog() {
             className="w-full h-10 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[var(--text-sm)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:shadow-[0_0_0_3px_var(--color-focus-ring)] transition-[box-shadow,border-color] duration-150"
           />
         </label>
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-between gap-2">
           <button
             type="button"
-            onClick={() => close(null)}
-            className="h-9 px-3 rounded-[var(--radius-md)] text-[var(--text-sm)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)] transition-colors"
+            onClick={() => void handleAiName()}
+            disabled={aiBusy}
+            aria-busy={aiBusy}
+            className="h-9 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] text-[var(--text-sm)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)] disabled:opacity-50 disabled:pointer-events-none transition-colors inline-flex items-center gap-1.5"
           >
-            {t('projects.rename.cancel')}
+            {aiBusy ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5" aria-hidden />
+            )}
+            {t('projects.rename.aiName')}
           </button>
-          <button
-            type="submit"
-            disabled={!canSave}
-            className="h-9 px-3 rounded-[var(--radius-md)] bg-[var(--color-accent)] text-[var(--color-on-accent)] text-[var(--text-sm)] font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-30 disabled:hover:bg-[var(--color-accent)] transition-colors"
-          >
-            {t('projects.rename.save')}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => close(null)}
+              className="h-9 px-3 rounded-[var(--radius-md)] text-[var(--text-sm)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)] transition-colors"
+            >
+              {t('projects.rename.cancel')}
+            </button>
+            <button
+              type="submit"
+              disabled={!canSave}
+              className="h-9 px-3 rounded-[var(--radius-md)] bg-[var(--color-accent)] text-[var(--color-on-accent)] text-[var(--text-sm)] font-medium hover:bg-[var(--color-accent-hover)] disabled:opacity-30 disabled:hover:bg-[var(--color-accent)] transition-colors"
+            >
+              {t('projects.rename.save')}
+            </button>
+          </div>
         </div>
       </form>
     </div>
