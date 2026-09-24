@@ -137,6 +137,7 @@ pnpm lint                       # biome check
 pnpm lint:fix                   # biome check --write
 pnpm typecheck                  # tsc --noEmit across workspace
 pnpm build                      # turbo build (bundles; electron-builder packaging is separate)
+pnpm --filter @open-codesign/desktop start # launch the built app; run pnpm build first
 pnpm -C apps/desktop package    # build + electron-builder installers
 pnpm smoke                      # scripts/smoke-models.ts — live provider/model smoke test
 pnpm docs:dev                   # VitePress website only

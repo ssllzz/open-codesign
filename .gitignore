@@ -73,4 +73,5 @@ website/public/demos/_speedup/
 
 # Agent worktrees / transcripts
 .claude/projects/
+.claude-dev/
 .codex-temp/

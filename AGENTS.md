@@ -187,5 +187,6 @@ pnpm test
 pnpm lint
 pnpm typecheck
 pnpm build
+pnpm --filter @open-codesign/desktop start   # launch the built app; run pnpm build first
 pnpm changeset
 ```
